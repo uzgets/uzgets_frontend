@@ -13,10 +13,10 @@ import "./Dashboard.css";
 import starsGif from "../../assets/stars.gif";
 import premiumGif from "../../assets/premium_gif.gif";
 import tilSticker from "../../assets/AnimatedSticker_til.tgs";
-import profileIcon from "../../assets/profile_icon.png";
 import menuIcon from "../../assets/main_icon.png";
 import bellsIcon from "../../assets/bells_icon.png";
 import statsIcon from "../../assets/stats_icon.png";
+import profileIcon from "../../assets/profile_icon.png";
 
 
 // ================== UTILS ==================
@@ -30,7 +30,6 @@ export default function Dashboard() {
 
   /* ================= USER ================= */
   const [username, setUsername] = useState(null);
-  const [userPhoto, setUserPhoto] = useState(null);
   const [isTelegram, setIsTelegram] = useState(false);
 
   /* ================= DATA ================= */
@@ -41,7 +40,7 @@ export default function Dashboard() {
   const [history, setHistory] = useState([]);
 
   /* ================= UI ================= */
-  const [tab, setTab] = useState("home"); // home | referral | profile | history
+  const [tab, setTab] = useState("home"); // home | history (iframe legacy)
   const [statsTab, setStatsTab] = useState("sales");
   const [loading, setLoading] = useState(false);
   const [navLoading, setNavLoading] = useState(false);
@@ -138,16 +137,11 @@ export default function Dashboard() {
         WebApp?.initDataUnsafe?.user?.id ||
         window?.Telegram?.WebApp?.initDataUnsafe?.user?.id;
 
-      const tgPhoto =
-        WebApp?.initDataUnsafe?.user?.photo_url ||
-        window?.Telegram?.WebApp?.initDataUnsafe?.user?.photo_url;
-
       if (tgUser) {
         const clean = tgUser.replace("@", "");
         setUsername(clean);
         localStorage.setItem("username", clean);
         setIsTelegram(true);
-        if (tgPhoto) setUserPhoto(tgPhoto);
         if (tgUserId) localStorage.setItem("userId", String(tgUserId));
 
         // Auto register
@@ -261,10 +255,9 @@ export default function Dashboard() {
     }
   };
 
-  // Back Button Logic
+  // Telegram BackButton — til modali yoki history overlay
   useEffect(() => {
     const handleBack = () => {
-      // Modallar bo'lsa, ularni yopish afzal, lekin bu yerda tabni qaytarish ustuvor
       if (showLanguageModal) {
         setShowLanguageModal(false);
       } else if (tab !== "home") {
@@ -339,13 +332,14 @@ export default function Dashboard() {
             </span>
           </h1>
           <button
+            type="button"
             className="notification-btn-dashboard"
             onClick={() => navigate("/notifications")}
             title="Notifications"
           >
             <img src={bellsIcon} alt="notifications" className="notification-btn-img" />
             {unreadCount > 0 && (
-              <span className="notification-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+              <span className="notification-badge">{unreadCount > 9 ? "9+" : unreadCount}</span>
             )}
           </button>
         </div>
@@ -394,11 +388,11 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* BOTTOM NAVIGATION — statistika | asosiy (markaz) | profil */}
+      {/* BOTTOM NAVIGATION — statistika | asosiy | profil */}
       <div className="bottom-nav_dashboard">
         <button
           type="button"
-          className={`nav-btn_dashboard ${tab === "history" ? "active" : ""}`}
+          className="nav-btn_dashboard"
           onClick={() => navigate("/statistics")}
           title={t("dashboard.statistics") || "Statistika"}
         >
@@ -420,9 +414,9 @@ export default function Dashboard() {
 
         <button
           type="button"
-          className={`nav-btn_dashboard ${tab === "profile" ? "active" : ""}`}
-          onClick={() => handleNavClick("profile")}
-          title={t("dashboard.profile")}
+          className="nav-btn_dashboard"
+          onClick={() => navigate("/profile")}
+          title={t("dashboard.profile") || "Profil"}
         >
           <div className="nav-icon">
             <img src={profileIcon} alt="Profile" />
@@ -457,16 +451,6 @@ export default function Dashboard() {
       )}
 
 
-
-      {tab === "profile" && (
-        <div className="overlay-modal_dashboard">
-          <iframe
-            src="/profile"
-            className="iframe-modal_dashboard"
-            title="Profile"
-          ></iframe>
-        </div>
-      )}
 
       {/* Language Selection Modal */}
       {showLanguageModal && (

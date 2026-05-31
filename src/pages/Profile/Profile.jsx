@@ -66,6 +66,32 @@ export default function Profile() {
     fetchStats();
   }, []);
 
+  /* Telegram BackButton — dashboardga qaytish */
+  useEffect(() => {
+    const handleBack = () => {
+      if (showLanguageModal) {
+        setShowLanguageModal(false);
+        return;
+      }
+      navigate("/");
+    };
+
+    try {
+      WebApp.ready();
+      WebApp.BackButton.show();
+      WebApp.BackButton.onClick(handleBack);
+    } catch (e) {
+      console.log("WebApp BackButton error:", e);
+    }
+
+    return () => {
+      try {
+        WebApp.BackButton.hide();
+        WebApp.BackButton.offClick(handleBack);
+      } catch (e) {}
+    };
+  }, [navigate, showLanguageModal]);
+
   const handleLanguageConfirm = () => {
     setLanguage(selectedLanguage);
     setShowLanguageModal(false);
