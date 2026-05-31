@@ -25,7 +25,6 @@ function normalizePremiumPollStatus(status) {
 }
 
 export function PremiumPurchasePage({ variant = "robynhood" }) {
-  const isFragment = variant === "fragment";
   const isPaymee = variant === "paymee";
   const isCardFlow = isCardDeliveryVariant(variant);
   const premiumApi = premiumApiPrefix(variant);
@@ -177,20 +176,15 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
       try {
         setLoadingProfile(true);
 
-        const clean = username.replace("@", "");
+        const clean = username.replace("@", "").trim();
 
-        if (isFragment) {
-          if (/^[a-zA-Z0-9_]{4,32}$/.test(clean)) {
-            setProfile({ username: clean, recipient: clean, fullName: clean });
-            setSearchError(null);
-          } else {
-            setProfile(null);
-            setSearchError("Username noto'g'ri");
-          }
+        if (!/^[a-zA-Z0-9_]{4,32}$/.test(clean)) {
+          setProfile(null);
+          setSearchError("Username noto'g'ri");
           return;
         }
 
-        const searchUrl = isPaymee ? `${premiumApi}/search` : "/api/premium/search";
+        const searchUrl = isCardFlow ? `${premiumApi}/search` : "/api/premium/search";
         const res = await apiFetch(searchUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -205,7 +199,12 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
 
         if (!res.ok) {
           setProfile(null);
-          setSearchError(data.error || "Foydalanuvchi topilmadi");
+          setSearchError(
+            data.code === "ALREADY_HAS_PREMIUM"
+              ? data.error ||
+                  "Bu foydalanuvchida allaqachon Telegram Premium mavjud."
+              : data.error || "Foydalanuvchi topilmadi"
+          );
           return;
         }
 
@@ -224,13 +223,13 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
       } finally {
         setLoadingProfile(false);
       }
-    }, isFragment ? 300 : 500);
+    }, 500);
 
     return () => {
       clearTimeout(delay);
       controller.abort();
     };
-  }, [username, selectedPlan, isFragment, isPaymee, premiumApi]);
+  }, [username, selectedPlan.months, isCardFlow, premiumApi]);
 
   // 🔹 Telegramdan username olish
   const fillMyUsername = () => {
@@ -301,8 +300,13 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
       return;
     }
 
-    if (!isCardFlow && (!profile?.username || !profile?.recipient)) {
-      alert("Foydalanuvchi topilmadi!");
+    if (!profile?.username || !profile?.recipient) {
+      alert(searchError || "Foydalanuvchi topilmadi!");
+      return;
+    }
+
+    if (searchError) {
+      alert(searchError);
       return;
     }
 
@@ -343,6 +347,14 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
         // SLOTS_FULL xatosi
         if (data.code === "SLOTS_FULL") {
           alert("⏳ Hozirda juda ko'p buyurtmalar mavjud.\n\nIltimos, 1-2 daqiqadan keyin qayta urinib ko'ring.");
+          return;
+        }
+        if (data.code === "ALREADY_HAS_PREMIUM") {
+          setSearchError(
+            data.error ||
+              "Bu foydalanuvchida allaqachon Telegram Premium mavjud."
+          );
+          setProfile(null);
           return;
         }
         if (isPaymeeInsufficientError(data)) {
@@ -611,7 +623,15 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
 
       <div className="actions" style={{ marginTop: "25px", marginBottom: "15px" }}>
         <button
-          disabled={loadingBuy || Boolean(paymeeStockMessage)}
+          disabled={
+            loadingBuy ||
+            loadingProfile ||
+            Boolean(paymeeStockMessage) ||
+            Boolean(searchError) ||
+            !profile?.username ||
+            !profile?.recipient ||
+            (isCardFlow && (fragmentSlotsFull || fragmentPriceLoading || !fragmentPlanPrice))
+          }
           onClick={handleCreateOrder}
         >
           {loadingBuy ? "Yuklanmoqda..." : "Premium olish"}
