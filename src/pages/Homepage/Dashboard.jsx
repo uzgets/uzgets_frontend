@@ -12,17 +12,11 @@ import "./Dashboard.css";
 
 import starsGif from "../../assets/stars.gif";
 import premiumGif from "../../assets/premium_gif.gif";
-import ayiqImg from "../../assets/ayiqyurakchali.jpg";
-import actionCardSticker from "../../assets/5800655655995968830.tgs";
 import tilSticker from "../../assets/AnimatedSticker_til.tgs";
-import referalSticker from "../../assets/AnimatedSticker_ref.tgs";
-import ordersIcon from "../../assets/orders_icon.png";
 import profileIcon from "../../assets/profile_icon.png";
 import menuIcon from "../../assets/main_icon.png";
 import bellsIcon from "../../assets/bells_icon.png";
-import starsjoyAvatar from "../../assets/starsjoy.jpg";
 import statsIcon from "../../assets/stats_icon.png";
-import discountIcon from "../../assets/discount_icon.png";
 
 
 // ================== UTILS ==================
@@ -300,11 +294,11 @@ export default function Dashboard() {
   /* ================= SPLASH AUTO-HIDE ================= */
   useEffect(() => {
     if (!splashVisible) return;
-    const fadeTimer = setTimeout(() => setSplashFading(true), 1250);
+    const fadeTimer = setTimeout(() => setSplashFading(true), 1100);
     const hideTimer = setTimeout(() => {
       setSplashVisible(false);
       sessionStorage.setItem("splashShown", "1");
-    }, 2050);
+    }, 2000);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(hideTimer);
@@ -313,44 +307,20 @@ export default function Dashboard() {
 
   /* ================= UI ================= */
 
-  // Splash screen - StarsJoy Loader
   if (splashVisible) {
     return (
-      <div className={`splash-screen ${splashFading ? 'fade-out' : ''}`}>
-        {/* Aura background */}
-        <div className="splash-aura"></div>
-
-        <div className="splash-loader">
-          {/* Icon with oval rings */}
-          <div className="splash-icon-wrap">
-            <div className="splash-oval splash-oval-1"></div>
-            <div className="splash-oval splash-oval-2"></div>
-            <div className="splash-oval splash-oval-3"></div>
-            <svg className="splash-star" viewBox="0 0 48 48" width="40" height="40">
-              <defs>
-                <linearGradient id="splashGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#ddd6fe"/>
-                  <stop offset="50%" stopColor="#8b5cf6"/>
-                  <stop offset="100%" stopColor="#6d28d9"/>
-                </linearGradient>
-              </defs>
-              <path 
-                d="M24 4C24 4 26.5 14 30 18C34 22 44 24 44 24C44 24 34 26 30 30C26.5 34 24 44 24 44C24 44 21.5 34 18 30C14 26 4 24 4 24C4 24 14 22 18 18C21.5 14 24 4 24 4Z" 
-                fill="url(#splashGradient)"
-              />
-            </svg>
-          </div>
-
-          {/* Brand name */}
-          <div className="splash-brand">Stars<em>Joy</em></div>
-
-          {/* Loading dots */}
-          <div className="splash-dots">
-            <div className="splash-dot"></div>
-            <div className="splash-dot"></div>
-            <div className="splash-dot"></div>
-            <div className="splash-dot"></div>
-            <div className="splash-dot"></div>
+      <div
+        className={`splash-screen ${splashFading ? "fade-out" : ""}`}
+        aria-busy="true"
+        aria-label="Loading"
+      >
+        <div className="splash-content">
+          <h1 className="splash-brand-text">
+            Uz<span>gets</span>
+          </h1>
+          <p className="splash-tagline">Stars · Premium</p>
+          <div className="splash-loader-bar" aria-hidden="true">
+            <div className="loader-progress" />
           </div>
         </div>
       </div>
@@ -363,9 +333,10 @@ export default function Dashboard() {
       {/* HEADER */}
       <header className="dash-header_dashboard">
         <div className="header-inner_dashboard">
-          <h1 className="brand-title_dashboard">
-            <img src={starsjoyAvatar} alt="Starsjoy" className="brand-logo_dashboard" />
-            Starsjoy
+          <h1 className="brand-title_dashboard brand-title--spm">
+            <span className="brand-spm-text">
+              Uz<span className="brand-spm-pay">gets</span>
+            </span>
           </h1>
           <button
             className="notification-btn-dashboard"
@@ -381,26 +352,24 @@ export default function Dashboard() {
       </header>
 
       <main className="dash-main_dashboard" style={{display: tab === 'home' ? 'flex' : 'none'}}>
-        {/* ACTION CARDS - Stars wide, Gift & Premium side by side */}
         <div className="dashboard-actions-container">
-          {/* Stars - Full Width */}
-          <div className="action-card-wide" onClick={() => navigate(starsPurchasePath)}>
-            <img src={starsGif} className="action-card-wide__img" alt="stars" />
-            <div className="action-card-wide__content">
-              <span className="action-card-wide__title">{t("dashboard.buyStars") || "Stars olish"}</span>
-            </div>
-          </div>
-
-          {/* Gift & Premium - Side by Side */}
-          <div className="action-cards-row">
-            <div className="action-card-half" onClick={() => navigate("/gift")}>
-              <TGSSticker stickerPath={actionCardSticker} className="action-card-half__img" autoplay={true} loop={true} />
-              <span className="action-card-half__title">{t("dashboard.buyGift") || "Gift olish"}</span>
-            </div>
-            <div className="action-card-half" onClick={() => navigate(premiumPurchasePath)}>
-              <img src={premiumGif} className="action-card-half__img" alt="premium" />
+          <div className="action-cards-row action-cards-row--spm">
+            <button
+              type="button"
+              className="action-card-half action-card-half--stars"
+              onClick={() => navigate(starsPurchasePath)}
+            >
+              <img src={starsGif} className="action-card-half__img action-card-half__img--gif" alt="stars" />
+              <span className="action-card-half__title">{t("dashboard.buyStars") || "Stars olish"}</span>
+            </button>
+            <button
+              type="button"
+              className="action-card-half action-card-half--premium"
+              onClick={() => navigate(premiumPurchasePath)}
+            >
+              <img src={premiumGif} className="action-card-half__img action-card-half__img--gif" alt="premium" />
               <span className="action-card-half__title">{t("dashboard.buyPremium") || "Premium olish"}</span>
-            </div>
+            </button>
           </div>
 
           {/* Referral Invite Banner */}
@@ -425,19 +394,10 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* BOTTOM NAVIGATION */}
+      {/* BOTTOM NAVIGATION — statistika | asosiy (markaz) | profil */}
       <div className="bottom-nav_dashboard">
         <button
-          className={`nav-btn_dashboard ${tab === "home" ? "active" : ""}`}
-          onClick={() => handleNavClick("home")}
-          title={t("dashboard.home")}
-        >
-          <div className="nav-icon">
-            <img src={menuIcon} alt="Home" />
-          </div>
-        </button>
-
-        <button
+          type="button"
           className={`nav-btn_dashboard ${tab === "history" ? "active" : ""}`}
           onClick={() => navigate("/statistics")}
           title={t("dashboard.statistics") || "Statistika"}
@@ -448,16 +408,18 @@ export default function Dashboard() {
         </button>
 
         <button
-          className={`nav-btn_dashboard ${tab === "referral" ? "active" : ""}`}
-          onClick={() => navigate("/discount")}
-          title="Chegirma"
+          type="button"
+          className={`nav-btn_dashboard nav-btn--center center-btn ${tab === "home" ? "active" : ""}`}
+          onClick={() => handleNavClick("home")}
+          title={t("dashboard.home")}
         >
           <div className="nav-icon">
-            <img src={discountIcon} alt="Discount" />
+            <img src={menuIcon} alt="Home" />
           </div>
         </button>
 
         <button
+          type="button"
           className={`nav-btn_dashboard ${tab === "profile" ? "active" : ""}`}
           onClick={() => handleNavClick("profile")}
           title={t("dashboard.profile")}

@@ -6,6 +6,8 @@ import { useTranslation } from "../../context/LanguageContext";
 import apiFetch from "../../utils/apiFetch";
 import { TGSSticker } from "../../components/TGSSticker";
 import tilSticker from "../../assets/AnimatedSticker_til.tgs";
+import { CHANNEL_URL, CHANNEL_USERNAME } from "../../utils/brand";
+import { SUPPORT_URL, SUPPORT_USERNAME } from "../../utils/support";
 
 export default function Profile() {
   const { t, language, setLanguage } = useTranslation();
@@ -152,7 +154,7 @@ export default function Profile() {
       <div className="settings-group">
         {/* 5. Yordam */}
         <div className="settings-item" onClick={() => {
-          try { WebApp.openTelegramLink("https://t.me/starsjoy_bot"); } catch { window.open("https://t.me/starsjoy_bot", "_blank"); }
+          try { WebApp.openTelegramLink(SUPPORT_URL); } catch { window.open(SUPPORT_URL, "_blank"); }
         }}>
           <div className="settings-item-left">
             <div className="settings-icon icon-support">🛟</div>
@@ -162,14 +164,14 @@ export default function Profile() {
             </div>
           </div>
           <div className="settings-item-right">
-            <span className="settings-item-value">@starsjoy_bot</span>
+            <span className="settings-item-value">{SUPPORT_USERNAME}</span>
             <span className="settings-arrow">›</span>
           </div>
         </div>
 
         {/* 6. Yangiliklar kanali */}
         <div className="settings-item" onClick={() => {
-          try { WebApp.openTelegramLink("https://t.me/starsjoy"); } catch { window.open("https://t.me/starsjoy", "_blank"); }
+          try { WebApp.openTelegramLink(CHANNEL_URL); } catch { window.open(CHANNEL_URL, "_blank"); }
         }}>
           <div className="settings-item-left">
             <div className="settings-icon icon-channel">📢</div>
@@ -179,7 +181,7 @@ export default function Profile() {
             </div>
           </div>
           <div className="settings-item-right">
-            <span className="settings-item-value">@starsjoy</span>
+            <span className="settings-item-value">{CHANNEL_USERNAME}</span>
             <span className="settings-arrow">›</span>
           </div>
         </div>
@@ -187,7 +189,7 @@ export default function Profile() {
 
       {/* Footer */}
       <div className="settings-footer">
-        <p className="footer-copyright">© 2026 Starsjoy</p>
+        <p className="footer-copyright">© 2026 Uzgets</p>
         <p className="footer-rights">Barcha huquqlar himoyalangan</p>
         <div className="footer-divider"></div>
         <p className="footer-version">v3.1.1</p>

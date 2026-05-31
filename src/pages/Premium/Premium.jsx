@@ -18,6 +18,7 @@ import {
 } from "../../utils/paymeeErrors";
 import { PaymeeStockBanner } from "../../components/PaymeeStockBanner";
 import { PaymeeStockAlert } from "../../components/PaymeeStockAlert";
+import { EXPIRED_PREMIUM_MESSAGE, SUPPORT_URL } from "../../utils/support";
 function normalizePremiumPollStatus(status) {
   if (status === "completed" || status === "delivered") return "premium_sent";
   return status;
@@ -894,7 +895,7 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
                   <span className="error-icon">❌</span>
                 </div>
                 <h3 className="error-title">Xatolik yuz berdi</h3>
-                <p className="error-desc">{errorMessage || "Premium yuborishda muammo chiqdi. Iltimos, qaytadan urinib ko'ring."}</p>
+                <p className="error-desc" style={{ whiteSpace: "pre-line" }}>{errorMessage || EXPIRED_PREMIUM_MESSAGE}</p>
                 
                 <div style={{display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 20px', paddingBottom: '20px'}}>
                   <button type="button" className="modal-close-btn" onClick={() => {
@@ -907,7 +908,7 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
                     type="button" 
                     className="modal-close-btn" 
                     style={{ background: '#2b2d31', color: '#fff', border: '1px solid #444', marginTop: 0 }} 
-                    onClick={() => window.open("https://t.me/StarsjoySupport", "_blank")}
+                    onClick={() => window.open(SUPPORT_URL, "_blank")}
                   >
                     👨🏻‍💻 Admin bilan bog'lanish
                   </button>
@@ -922,14 +923,24 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
                   <span className="error-icon">⏰</span>
                 </div>
                 <h3 className="error-title">Vaqt tugadi</h3>
-                <p className="error-desc">To'lov muddati o'tib ketdi. Qaytadan urinib ko'ring.</p>
+                <p className="error-desc" style={{ whiteSpace: "pre-line" }}>{EXPIRED_PREMIUM_MESSAGE}</p>
                 
-                <button type="button" className="modal-close-btn" onClick={() => {
-                  setShowModal(false);
-                  setPaymentStatus("idle");
-                }}>
-                  Yopish
-                </button>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '8px', padding: '0 20px', paddingBottom: '20px', width: '100%'}}>
+                  <button
+                    type="button"
+                    className="modal-close-btn"
+                    style={{ background: '#2b2d31', color: '#fff', border: '1px solid #444', marginTop: 0 }}
+                    onClick={() => window.open(SUPPORT_URL, "_blank")}
+                  >
+                    👨🏻‍💻 Admin bilan bog'lanish
+                  </button>
+                  <button type="button" className="modal-close-btn" onClick={() => {
+                    setShowModal(false);
+                    setPaymentStatus("idle");
+                  }}>
+                    Yopish
+                  </button>
+                </div>
               </div>
             )}
 

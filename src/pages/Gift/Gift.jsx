@@ -10,6 +10,7 @@ import { PaymeeStockAlert } from "../../components/PaymeeStockAlert";
 import { TGSSticker } from "../../components/TGSSticker";
 import WebApp from "@twa-dev/sdk";
 import starsjoyLogo from "../../assets/starsjoy.jpg";
+import { SUPPORT_URL } from "../../utils/support";
 import "./gift.css";
 
 const CARD_NUMBER = import.meta.env.VITE_CARD_NUMBER;
@@ -535,7 +536,7 @@ export default function Gift() {
             {/* Gift Preview Card */}
             <div className="gift-bs-preview-card">
               <p className="gift-bs-preview-text">
-                Starsjoy Official sizga {selectedGift.stars} yulduz miqdorida hadya yubordi
+                Uzgets Official sizga {selectedGift.stars} yulduz miqdorida hadya yubordi
               </p>
               
               <div className="gift-bs-sticker-wrap">
@@ -551,7 +552,7 @@ export default function Gift() {
                 <span className="gift-bs-sender-label">Hadya yuboruvchi:</span>
                 <img src={starsjoyLogo} alt="" className="gift-bs-sender-avatar" />
                 <span className="gift-bs-sender-name">
-                  {isAnonymous ? "Anonim" : "Starsjoy Official"}
+                  {isAnonymous ? "Anonim" : "Uzgets Official"}
                 </span>
               </div>
               {comment && (
@@ -866,7 +867,7 @@ export default function Gift() {
                       type="button"
                       className="gift-modal-action-btn"
                       style={{ backgroundColor: '#2b2d31', color: '#fff', border: '1px solid #444' }}
-                      onClick={() => window.open("https://t.me/StarsjoySupport", "_blank")}
+                      onClick={() => window.open(SUPPORT_URL, "_blank")}
                     >
                       👨🏻‍💻 Admin bilan bog'lanish
                     </button>

@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
             <section className="legal-section">
               <h2>1. Kirish</h2>
               <p>
-                Starsjoy ("Biz", "Shirkati") foydalanuvchilarning maxfiyligini jiddiy oladi. 
+                Uzgets ("Biz", "Shirkati") foydalanuvchilarning maxfiyligini jiddiy oladi. 
                 Ushbu Maxfiylik Siyosati sizning ma'lumotlarimiz qanday to'planadi, ishlatiladi 
                 va himoyalanaganligini tushuntiradi.
               </p>
@@ -170,7 +170,7 @@ export default function PrivacyPolicy() {
             <section className="legal-section">
               <h2>1. Введение</h2>
               <p>
-                Starsjoy («Мы», «Компания») серьезно относится к конфиденциальности пользователей. 
+                Uzgets («Мы», «Компания») серьезно относится к конфиденциальности пользователей. 
                 Эта Политика конфиденциальности объясняет, как мы собираем, используем и защищаем 
                 ваши данные.
               </p>
@@ -321,7 +321,7 @@ export default function PrivacyPolicy() {
             <section className="legal-section">
               <h2>1. Introduction</h2>
               <p>
-                Starsjoy ("We", "Company") takes user privacy seriously. This Privacy Policy 
+                Uzgets ("We", "Company") takes user privacy seriously. This Privacy Policy 
                 explains how we collect, use, and protect your data.
               </p>
             </section>

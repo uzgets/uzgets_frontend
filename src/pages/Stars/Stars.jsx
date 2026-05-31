@@ -15,6 +15,7 @@ import {
 } from "../../utils/paymeeErrors";
 import { PaymeeStockBanner } from "../../components/PaymeeStockBanner";
 import { PaymeeStockAlert } from "../../components/PaymeeStockAlert";
+import { EXPIRED_STARS_MESSAGE, SUPPORT_URL } from "../../utils/support";
 import "./Stars.css";
 
 import WebApp from "@twa-dev/sdk";
@@ -1092,7 +1093,8 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
                 <button type="button" className="modal-close-x expired-x" onClick={() => { setShowModal(false); stopPolling(); stopCountdown(); }}>✕</button>
                 <div className="modal-result-icon expired-bg">⏰</div>
                 <h3 className="modal-result-title">Vaqt tugadi</h3>
-                <p className="modal-result-desc">To'lov muddati o'tib ketdi. Qaytadan urinib ko'ring.</p>
+                <p className="modal-result-desc" style={{ whiteSpace: "pre-line" }}>{EXPIRED_STARS_MESSAGE}</p>
+                <button type="button" className="btn-go-home" onClick={() => window.open(SUPPORT_URL, "_blank")}>👨🏻‍💻 Admin bilan bog'lanish</button>
                 <button type="button" className="btn-go-home" onClick={goToHome}>🏠 Bosh sahifaga qaytish</button>
               </div>
             )}
@@ -1103,8 +1105,8 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
                 <button type="button" className="modal-close-x expired-x" onClick={() => { setShowModal(false); stopPolling(); stopCountdown(); }}>✕</button>
                 <div className="modal-result-icon expired-bg" style={{background: 'rgba(255, 59, 48, 0.15)', color: '#ff3b30'}}>❌</div>
                 <h3 className="modal-result-title">Xatolik yuz berdi</h3>
-                <p className="modal-result-desc">{errorMessage || "Stars olishda xatolik. Admin bilan bog'laning."}</p>
-                <button type="button" className="btn-go-home" onClick={() => window.open("https://t.me/StarsjoySupport", "_blank")}>👨🏻‍💻 Admin bilan bog'lanish</button>
+                <p className="modal-result-desc" style={{ whiteSpace: "pre-line" }}>{errorMessage || EXPIRED_STARS_MESSAGE}</p>
+                <button type="button" className="btn-go-home" onClick={() => window.open(SUPPORT_URL, "_blank")}>👨🏻‍💻 Admin bilan bog'lanish</button>
               </div>
             )}
           </div>

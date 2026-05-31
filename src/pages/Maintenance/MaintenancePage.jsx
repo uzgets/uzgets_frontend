@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { CHANNEL_URL } from "../../utils/brand";
+import { SUPPORT_URL } from "../../utils/support";
 import "./Maintenance.css";
 
 export default function MaintenancePage() {
@@ -26,7 +28,7 @@ export default function MaintenancePage() {
         {/* Brand */}
         <div className="mt-page__brand">
           <span className="mt-page__brand-icon">⭐</span>
-          <span className="mt-page__brand-name">Starsjoy</span>
+          <span className="mt-page__brand-name">Uzgets</span>
         </div>
 
         {/* Animated icon */}
@@ -59,14 +61,14 @@ export default function MaintenancePage() {
 
         {/* News channel */}
         <a
-          href="https://t.me/starsjoy"
+          href={CHANNEL_URL}
           className="mt-page__channel"
           target="_blank"
           rel="noopener noreferrer"
         >
           <span className="mt-page__channel-icon">📢</span>
           <div className="mt-page__channel-info">
-            <span className="mt-page__channel-name">@starsjoy — Yangiliklar</span>
+            <span className="mt-page__channel-name">@uzgets — Yangiliklar</span>
             <span className="mt-page__channel-hint">Bot ishga tushganini birinchi bo'lib biling</span>
           </div>
           <span className="mt-page__channel-arrow">→</span>
@@ -75,7 +77,7 @@ export default function MaintenancePage() {
         {/* Action buttons */}
         <div className="mt-page__actions">
           <a
-            href="https://t.me/starsjoy_bot"
+            href={SUPPORT_URL}
             className="mt-page__btn mt-page__btn--primary"
             target="_blank"
             rel="noopener noreferrer"
@@ -91,7 +93,7 @@ export default function MaintenancePage() {
         </div>
 
         <p className="mt-page__footer">
-          @starsjoy · Telegram Stars xizmati
+          @uzgets · Telegram Stars xizmati
         </p>
       </div>
     </div>

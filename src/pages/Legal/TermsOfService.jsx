@@ -17,7 +17,7 @@ export default function TermsOfService() {
             <section className="legal-section">
               <h2>1. Kiritish</h2>
               <p>
-                Starsjoy ("Platforma", "Biz", "Shirkati") - bu Telegram mini-applikatsiya orqali 
+                Uzgets ("Platforma", "Biz", "Shirkati") - bu Telegram mini-applikatsiya orqali 
                 Telegram yulduzlarini sotib olish xizmatini taqdim etadi. Ushbu Foydalanish Shartlari 
                 ("Shartlar") sizning Platforma va uning xizmatlaridan foydalanishni tartibga soladi.
               </p>
@@ -30,7 +30,7 @@ export default function TermsOfService() {
             <section className="legal-section">
               <h2>2. Xizmat Tavsifi</h2>
               <p>
-                Starsjoy foydalanuvchilarga quyidagilarga imkon beradi:
+                Uzgets foydalanuvchilarga quyidagilarga imkon beradi:
               </p>
               <ul>
                 <li>Telegram yulduzlarini sotib olish</li>
@@ -115,7 +115,7 @@ export default function TermsOfService() {
             <section className="legal-section">
               <h2>1. Введение</h2>
               <p>
-                Starsjoy («Платформа», «Мы», «Компания») - это сервис покупки звезд Telegram 
+                Uzgets («Платформа», «Мы», «Компания») - это сервис покупки звезд Telegram 
                 через мини-приложение Telegram. Эти Условия использования («Условия») регулируют 
                 ваше использование Платформы и ее услуг.
               </p>
@@ -128,7 +128,7 @@ export default function TermsOfService() {
             <section className="legal-section">
               <h2>2. Описание услуги</h2>
               <p>
-                Starsjoy позволяет пользователям:
+                Uzgets позволяет пользователям:
               </p>
               <ul>
                 <li>Покупать звезды Telegram</li>
@@ -212,7 +212,7 @@ export default function TermsOfService() {
             <section className="legal-section">
               <h2>1. Introduction</h2>
               <p>
-                Starsjoy ("Platform", "We", "Company") is a service for purchasing Telegram Stars 
+                Uzgets ("Platform", "We", "Company") is a service for purchasing Telegram Stars 
                 through a Telegram mini app. These Terms of Service ("Terms") govern your use of the 
                 Platform and its services.
               </p>
@@ -225,7 +225,7 @@ export default function TermsOfService() {
             <section className="legal-section">
               <h2>2. Service Description</h2>
               <p>
-                Starsjoy allows users to:
+                Uzgets allows users to:
               </p>
               <ul>
                 <li>Purchase Telegram Stars</li>

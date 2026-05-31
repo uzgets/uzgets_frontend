@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { MINI_APP_URL } from "../utils/brand";
+import { SUPPORT_URL } from "../utils/support";
 import "./TelegramGate.css";
 
 /**
@@ -128,7 +130,7 @@ export default function TelegramGate({ children }) {
         {/* Tugmalar */}
         <div className="tg-gate-buttons">
           <a
-            href="https://t.me/StarsjoyBot/starsjoy"
+            href={MINI_APP_URL}
             className="tg-gate-btn tg-gate-btn-primary"
             target="_blank"
             rel="noopener noreferrer"
@@ -136,7 +138,7 @@ export default function TelegramGate({ children }) {
             Telegram'da ochish
           </a>
           <a
-            href="https://t.me/starsjoy"
+            href={SUPPORT_URL}
             className="tg-gate-btn tg-gate-btn-secondary"
             target="_blank"
             rel="noopener noreferrer"
