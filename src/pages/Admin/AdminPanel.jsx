@@ -5,17 +5,6 @@ import adminSticker from "../../assets/AnimatedSticker_admin.tgs";
 import apiFetch from "../../utils/apiFetch";
 import AdminCustomSelect from "../../components/AdminCustomSelect";
 
-const PURCHASE_MODE_OPTIONS = [
-  { value: "robynhood", label: "RobynHood", icon: "🔷" },
-  { value: "fragment", label: "Fragment", icon: "🟣" },
-  { value: "paymee", label: "Paymee", icon: "🟢" },
-];
-
-const FRAGMENT_PAY_OPTIONS = [
-  { value: "ton", label: "TON", icon: "💎" },
-  { value: "usdt_ton", label: "USDT", icon: "💵" },
-];
-
 const ORDER_STATUS_FILTER_OPTIONS = [
   { value: "all", label: "Hammasi", icon: "📋" },
   { value: "pending", label: "Pending", icon: "⏳" },
@@ -128,7 +117,6 @@ export default function AdminPanel() {
 
   const SECONDARY_NAV_MENU = [
     { id: "notifications", icon: "📣", label: "Xabar" },
-    { id: "fragment-cookie", icon: "🍪", label: "Fragment" },
   ];
 
   const SECONDARY_NAV_BOTTOM = [
@@ -141,7 +129,6 @@ export default function AdminPanel() {
   const SECONDARY_NAV_HEADER = [
     { id: "analytics", icon: "📊", label: "Analitika" },
     { id: "notifications", icon: "📣", label: "Xabar" },
-    { id: "fragment-cookie", icon: "🍪", label: "Fragment" },
     { id: "settings", icon: "%", label: "Chegirma" },
     { id: "promocodes", icon: "➕", label: "Promokod" },
     { id: "referrals", icon: "🤝", label: "Referral" },
@@ -187,24 +174,8 @@ export default function AdminPanel() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
-  const [starsPurchaseMode, setStarsPurchaseMode] = useState("robynhood");
-  const [purchaseModeLoading, setPurchaseModeLoading] = useState(false);
-  const [fragmentTokens, setFragmentTokens] = useState({
-    fragment_dt: "-300",
-    fragment_ssid: "",
-    fragment_token: "",
-    fragment_ton_token: "",
-  });
-  const [fragmentTokensLoading, setFragmentTokensLoading] = useState(false);
-  const [fragmentVerifyLoading, setFragmentVerifyLoading] = useState(false);
-  const [fragmentVerifyMsg, setFragmentVerifyMsg] = useState("");
-  const [fragmentPaymentMethod, setFragmentPaymentMethod] = useState("ton");
-  const [fragmentPayLoading, setFragmentPayLoading] = useState(false);
-  const [fragmentEnvStatus, setFragmentEnvStatus] = useState(null);
-  const [fragmentEnvLoading, setFragmentEnvLoading] = useState(false);
-  const [fragmentTestSource, setFragmentTestSource] = useState("env");
-  const [fragmentTestResult, setFragmentTestResult] = useState(null);
-  const [fragmentTestLoading, setFragmentTestLoading] = useState(false);
+  // StarsPaymee Partner API health (header rozetkasi)
+  const [paymeeHealth, setPaymeeHealth] = useState({ ok: false, fragment_ready: false, version: null, error: null });
 
   // 🔔 Notifications state
   const [notifTitle, setNotifTitle] = useState("");
@@ -260,8 +231,7 @@ export default function AdminPanel() {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
   // Wallet & Prices state
-  const [walletBalance, setWalletBalance] = useState({ mainnet: 0, testnet: 0 });
-  const [starPrices, setStarPrices] = useState({ priceFor50: 0, pricePerStar: 0, currency: "TON", availableStars: 0 });
+  const [starPrices, setStarPrices] = useState({ priceFor50: 0, pricePerStar: 0, currency: "USDT", availableStars: 0 });
   const [walletLoading, setWalletLoading] = useState(false);
   const [botStarsBalance, setBotStarsBalance] = useState(0);
   const [userbotRefillEnabled, setUserbotRefillEnabled] = useState(true);
@@ -300,8 +270,6 @@ export default function AdminPanel() {
   const applySettingsFromApi = (data) => {
     if (!data) return;
     if (data.maintenance !== undefined) setMaintenanceMode(Boolean(data.maintenance));
-    if (data.stars_purchase_mode) setStarsPurchaseMode(data.stars_purchase_mode);
-    if (data.fragment_payment_method) setFragmentPaymentMethod(data.fragment_payment_method);
   };
 
   const fetchAdminSettings = async () => {
@@ -351,15 +319,12 @@ export default function AdminPanel() {
       const data = await walletRes.json();
 
       if (data.success) {
-        setWalletBalance({
-          mainnet: data.wallet.mainnet_balance || 0,
-          testnet: data.wallet.testnet_balance || 0
-        });
+        setPaymeeHealth(data.health || { ok: false });
 
         setStarPrices({
-          priceFor50: data.stars_price.price_for_50 || 0,
-          pricePerStar: data.stars_price.price_per_star || 0,
-          currency: data.stars_price.currency || "TON",
+          priceFor50: 0,
+          pricePerStar: 0,
+          currency: "USDT",
           availableStars: data.available_stars || 0
         });
 
@@ -623,133 +588,13 @@ export default function AdminPanel() {
     }
   }, [analyticsPeriod, activeTab, isAuthenticated]);
 
+  // Header rozetkasi uchun StarsPaymee balans + health (autentifikatsiyadan keyin bir marta)
   useEffect(() => {
-    if (isAuthenticated && (activeTab === "settings" || activeTab === "fragment-cookie")) {
-      fetchFragmentTokens();
+    if (isAuthenticated) {
+      fetchWalletAndPrices();
     }
-  }, [isAuthenticated, activeTab]);
-
-  useEffect(() => {
-    if (isAuthenticated && activeTab === "fragment-cookie") {
-      fetchFragmentEnvStatus();
-    }
-  }, [isAuthenticated, activeTab]);
-
-  const fetchFragmentTokens = async () => {
-    setFragmentTokensLoading(true);
-    try {
-      const res = await apiFetch("/api/admin/tokens/fragment?masked=0");
-      const data = await res.json();
-      if (data.tokens) setFragmentTokens(data.tokens);
-    } catch (err) {
-      console.error("Fragment tokens:", err);
-    } finally {
-      setFragmentTokensLoading(false);
-    }
-  };
-
-  const saveFragmentTokens = async () => {
-    setFragmentTokensLoading(true);
-    try {
-      const res = await apiFetch("/api/admin/tokens/fragment", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(fragmentTokens),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        alert("✅ Fragment cookie saqlandi");
-        if (data.tokens) setFragmentTokens(data.tokens);
-      } else {
-        alert("❌ " + (data.error || "Xato"));
-      }
-    } catch {
-      alert("Server xatosi");
-    } finally {
-      setFragmentTokensLoading(false);
-    }
-  };
-
-  const fetchFragmentEnvStatus = async () => {
-    setFragmentEnvLoading(true);
-    try {
-      const res = await apiFetch("/api/admin/fragment/env-status");
-      const data = await res.json();
-      if (res.ok) setFragmentEnvStatus(data);
-    } catch (err) {
-      console.error("Fragment env-status:", err);
-    } finally {
-      setFragmentEnvLoading(false);
-    }
-  };
-
-  const runFragmentCookieTest = async () => {
-    setFragmentTestLoading(true);
-    setFragmentTestResult(null);
-    try {
-      const res = await apiFetch(
-        `/api/admin/fragment/cookie-test?source=${encodeURIComponent(fragmentTestSource)}`
-      );
-      const data = await res.json();
-      setFragmentTestResult(data);
-    } catch (err) {
-      setFragmentTestResult({ ok: false, error: err.message || "Tekshiruv xatosi" });
-    } finally {
-      setFragmentTestLoading(false);
-    }
-  };
-
-  const verifyFragmentCookies = async () => {
-    setFragmentVerifyLoading(true);
-    setFragmentVerifyMsg("");
-    try {
-      const res = await apiFetch("/api/admin/fragment/verify");
-      const data = await res.json();
-      setFragmentVerifyMsg(data.ok ? "✅ Cookie ishlayapti" : `❌ ${data.error || "Xato"}`);
-    } catch {
-      setFragmentVerifyMsg("❌ Tekshiruv xatosi");
-    } finally {
-      setFragmentVerifyLoading(false);
-    }
-  };
-
-  const setFragmentPayMethod = async (method) => {
-    if (method === fragmentPaymentMethod || fragmentPayLoading) return;
-    setFragmentPayLoading(true);
-    try {
-      const res = await apiFetch("/api/admin/fragment-payment-method", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payment_method: method }),
-      });
-      const data = await res.json();
-      if (res.ok) applySettingsFromApi(data);
-      else alert(data.error || "Xato");
-    } catch {
-      alert("Server xatosi");
-    } finally {
-      setFragmentPayLoading(false);
-    }
-  };
-
-  const setPurchaseMode = async (mode) => {
-    if (mode === starsPurchaseMode || purchaseModeLoading) return;
-    setPurchaseModeLoading(true);
-    try {
-      const res = await apiFetch("/api/admin/stars-purchase-mode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
-      const data = await res.json();
-      if (res.ok) applySettingsFromApi(data);
-      else alert(data.error || "Xato");
-    } catch {
-      alert("Server xatosi");
-    } finally {
-      setPurchaseModeLoading(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   // ========== ALL FUNCTIONS ==========
   const fetchTransactions = async () => {
@@ -1195,8 +1040,6 @@ export default function AdminPanel() {
       fetchNotifications();
     } else if (activeTab === "promocodes") {
       fetchPromocodes();
-    } else if (activeTab === "fragment-cookie") {
-      fetchFragmentEnvStatus();
     }
   }, [filter, activeTab, isAuthenticated, premiumFilter, giftFilter, referralFilter]);
 
@@ -1834,25 +1677,28 @@ export default function AdminPanel() {
             </button>
           </div>
 
-          <AdminCustomSelect
-            className="admin-custom-select--header-mode"
-            value={starsPurchaseMode}
-            onChange={setPurchaseMode}
-            options={PURCHASE_MODE_OPTIONS}
-            disabled={purchaseModeLoading}
-            ariaLabel="Yetkazish rejimi"
-          />
-
-          {starsPurchaseMode === "fragment" && (
-            <AdminCustomSelect
-              className="admin-custom-select--header-pay"
-              value={fragmentPaymentMethod}
-              onChange={setFragmentPayMethod}
-              options={FRAGMENT_PAY_OPTIONS}
-              disabled={fragmentPayLoading}
-              ariaLabel="Fragment to'lov"
-            />
-          )}
+          {/* StarsPaymee balans + health rozetkasi */}
+          <div
+            className={`paymee-hdr-badge ${paymeeHealth.ok ? "ok" : "down"}`}
+            title={
+              paymeeHealth.ok
+                ? `StarsPaymee API faol${paymeeHealth.fragment_ready ? " · Fragment tayyor" : ""}`
+                : paymeeHealth.error || "StarsPaymee API ulanmadi"
+            }
+            onClick={fetchWalletAndPrices}
+            role="button"
+          >
+            <span className={`paymee-hdr-dot ${paymeeHealth.ok ? "on" : "off"}`} />
+            <span className="paymee-hdr-bal">
+              {walletLoading
+                ? "..."
+                : paymeeWallet.configured && paymeeWallet.balanceUsdt != null
+                  ? `${Number(paymeeWallet.balanceUsdt).toLocaleString(undefined, { maximumFractionDigits: 2 })} USDT`
+                  : paymeeWallet.error
+                    ? "—"
+                    : "0 USDT"}
+            </span>
+          </div>
 
           <div className="header-top-actions">
             <button
@@ -2193,8 +2039,14 @@ export default function AdminPanel() {
               <code>userbot_star_refills</code> jadvali)
             </p>
             <div className="info-row">
-              <span className="info-label">💎 TON balance:</span>
-              <span className="info-value">{walletLoading ? '...' : walletBalance.mainnet.toFixed(2)}</span>
+              <span className="info-label">🩺 API holati:</span>
+              <span className={`info-value ${paymeeHealth.ok ? "green" : ""}`}>
+                {walletLoading
+                  ? "..."
+                  : paymeeHealth.ok
+                    ? `✅ Faol${paymeeHealth.fragment_ready ? " · Fragment tayyor" : ""}`
+                    : `❌ ${paymeeHealth.error || "Ulanmadi"}`}
+              </span>
             </div>
             <div className="info-row">
               <span className="info-label">💵 1 star (Paymee):</span>
@@ -2205,10 +2057,6 @@ export default function AdminPanel() {
                     ? `${paymeeWallet.usdtPerStar} USDT`
                     : "—"}
               </span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">💵 50 stars (Robyn TON):</span>
-              <span className="info-value">{walletLoading ? "..." : (starPrices.priceFor50 || 0).toFixed(3)} TON</span>
             </div>
           </div>
 
@@ -3130,309 +2978,13 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* ==================== FRAGMENT COOKIE TAB ==================== */}
-      {activeTab === "fragment-cookie" && (
-        <div className="tab-content settings-tab fragment-cookie-tab">
-          <h3 className="settings-section-title">🍪 Fragment cookie test</h3>
-          <p className="settings-section-desc">
-            Tekshiruv server <code>backend/.env</code> dagi <code>FRAGMENT_*</code>, <code>SEED</code>,{" "}
-            <code>API_KEY</code>, <code>FRAGMENT_HTTP_PROXY</code> dan foydalanadi (standart manba: .env).
-            Yetkazishda cookie odatda PostgreSQL <code>tokens</code> jadvalidan olinadi — ikkalasi mos bo‘lishi kerak.
-          </p>
-
-          <div className="fragment-env-grid">
-            {fragmentEnvLoading && !fragmentEnvStatus && (
-              <p className="settings-hint">⏳ .env holati yuklanmoqda...</p>
-            )}
-            {fragmentEnvStatus?.env && (
-              <div className="fragment-env-card">
-                <h4>📁 .env (maskalangan)</h4>
-                <ul className="fragment-env-list">
-                  <li>
-                    <span>SEED</span>
-                    <strong>{fragmentEnvStatus.env.has_seed ? "✅ bor" : "❌ yo‘q"}</strong>
-                  </li>
-                  <li>
-                    <span>API_KEY</span>
-                    <strong>{fragmentEnvStatus.env.has_api_key ? "✅ bor" : "❌ yo‘q"}</strong>
-                  </li>
-                  <li>
-                    <span>DATABASE</span>
-                    <strong>{fragmentEnvStatus.env.database_host}</strong>
-                  </li>
-                  <li>
-                    <span>FRAGMENT_DT</span>
-                    <strong>{fragmentEnvStatus.env.fragment_dt}</strong>
-                  </li>
-                  <li>
-                    <span>FRAGMENT_SSID</span>
-                    <strong>{fragmentEnvStatus.env.fragment_ssid}</strong>
-                  </li>
-                  <li>
-                    <span>FRAGMENT_TOKEN</span>
-                    <strong>{fragmentEnvStatus.env.fragment_token}</strong>
-                  </li>
-                  <li>
-                    <span>FRAGMENT_TON_TOKEN</span>
-                    <strong>{fragmentEnvStatus.env.fragment_ton_token}</strong>
-                  </li>
-                  <li>
-                    <span>FRAGMENT_HTTP_PROXY</span>
-                    <strong>
-                      {fragmentEnvStatus.env.fragment_http_proxy ||
-                        fragmentEnvStatus.proxy?.enabled
-                          ? fragmentEnvStatus.env.fragment_http_proxy || fragmentEnvStatus.proxy?.url
-                          : "(yo‘q)"}
-                    </strong>
-                  </li>
-                </ul>
-                <p className="settings-hint">
-                  .env cookie: {fragmentEnvStatus.env_ready ? "✅ to‘liq" : "❌ ssid/token yo‘q"} · DB:{" "}
-                  {fragmentEnvStatus.db_ready ? "✅ to‘liq" : "❌"} · Mos:{" "}
-                  {fragmentEnvStatus.fingerprints_match ? "✅ ha" : "⚠️ farq bor"}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="purchase-mode-settings" style={{ marginTop: "16px" }}>
-            <h4 className="settings-section-title" style={{ fontSize: "15px" }}>
-              Manba (tekshiruv)
-            </h4>
-            <div className="purchase-mode-switch purchase-mode-switch--large">
-              <button
-                type="button"
-                className={`purchase-mode-btn ${fragmentTestSource === "env" ? "active frag" : ""}`}
-                onClick={() => setFragmentTestSource("env")}
-                disabled={fragmentTestLoading}
-              >
-                .env
-              </button>
-              <button
-                type="button"
-                className={`purchase-mode-btn ${fragmentTestSource === "db" ? "active robyn" : ""}`}
-                onClick={() => setFragmentTestSource("db")}
-                disabled={fragmentTestLoading}
-              >
-                PostgreSQL
-              </button>
-              <button
-                type="button"
-                className={`purchase-mode-btn ${fragmentTestSource === "auto" ? "active ton" : ""}`}
-                onClick={() => setFragmentTestSource("auto")}
-                disabled={fragmentTestLoading}
-              >
-                Auto
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
-              <button
-                type="button"
-                className="add-package-btn"
-                onClick={runFragmentCookieTest}
-                disabled={fragmentTestLoading}
-              >
-                {fragmentTestLoading ? "⏳ Tekshirilmoqda..." : "🔍 Cookie test (HTTP)"}
-              </button>
-              <button
-                type="button"
-                className="add-package-btn"
-                onClick={() => {
-                  fetchFragmentEnvStatus();
-                  fetchFragmentTokens();
-                }}
-                disabled={fragmentEnvLoading}
-              >
-                🔄 Yangilash
-              </button>
-              <button
-                type="button"
-                className="add-package-btn"
-                onClick={verifyFragmentCookies}
-                disabled={fragmentVerifyLoading}
-              >
-                {fragmentVerifyLoading ? "⏳..." : "🐍 Python verify"}
-              </button>
-            </div>
-            {fragmentVerifyMsg && (
-              <p style={{ marginTop: "8px", fontSize: "13px" }}>{fragmentVerifyMsg}</p>
-            )}
-          </div>
-
-          {fragmentTestResult && (
-            <div
-              className={`fragment-test-result ${fragmentTestResult.ok ? "ok" : "fail"}`}
-            >
-              <div className="fragment-test-result-head">
-                <strong>{fragmentTestResult.ok ? "✅ Cookie ishlayapti" : "❌ Xato"}</strong>
-                {fragmentTestResult.status != null && (
-                  <span>HTTP {fragmentTestResult.status}</span>
-                )}
-                {fragmentTestResult.token_source && (
-                  <span>manba: {fragmentTestResult.token_source}</span>
-                )}
-                {fragmentTestResult.tor_port_9050 && (
-                  <span>Tor 9050: {fragmentTestResult.tor_port_9050}</span>
-                )}
-              </div>
-              {fragmentTestResult.error && (
-                <p className="fragment-test-error">{fragmentTestResult.error}</p>
-              )}
-              {Array.isArray(fragmentTestResult.hints) && fragmentTestResult.hints.length > 0 && (
-                <ul className="fragment-test-hints">
-                  {fragmentTestResult.hints.map((h, i) => (
-                    <li key={i}>{h}</li>
-                  ))}
-                </ul>
-              )}
-              <pre className="fragment-test-json">
-                {JSON.stringify(fragmentTestResult, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          <h3 className="settings-section-title" style={{ marginTop: "28px" }}>
-            💾 Cookie (PostgreSQL tokens)
-          </h3>
-          <p className="settings-section-desc">
-            Yetkazish vaqtida server shu jadvaldan o‘qiydi. .env bilan bir xil qiymatlarni qo‘ying yoki .env ni
-            yangilab serverni qayta ishga tushiring.
-          </p>
-          <div className="settings-add-package" style={{ marginBottom: "24px" }}>
-            <div className="package-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>fragment_dt</label>
-                  <input
-                    value={fragmentTokens.fragment_dt}
-                    onChange={(e) =>
-                      setFragmentTokens({ ...fragmentTokens, fragment_dt: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-group">
-                  <label>fragment_ssid</label>
-                  <input
-                    value={fragmentTokens.fragment_ssid}
-                    onChange={(e) =>
-                      setFragmentTokens({ ...fragmentTokens, fragment_ssid: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>fragment_token</label>
-                  <input
-                    value={fragmentTokens.fragment_token}
-                    onChange={(e) =>
-                      setFragmentTokens({ ...fragmentTokens, fragment_token: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="form-group">
-                  <label>fragment_ton_token</label>
-                  <input
-                    value={fragmentTokens.fragment_ton_token}
-                    onChange={(e) =>
-                      setFragmentTokens({
-                        ...fragmentTokens,
-                        fragment_ton_token: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "12px" }}>
-                <button
-                  type="button"
-                  className="add-package-btn"
-                  onClick={saveFragmentTokens}
-                  disabled={fragmentTokensLoading}
-                >
-                  {fragmentTokensLoading ? "⏳..." : "💾 DB ga saqlash"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ==================== SETTINGS TAB ==================== */}
       {activeTab === "settings" && (
         <div className="tab-content settings-tab">
           <h3 className="settings-section-title">⚡ Stars / Premium yetkazish</h3>
           <p className="settings-section-desc">
-            Dashboard dagi &quot;Stars olish&quot; va &quot;Premium olish&quot; tugmalari qaysi sahifaga ochilishini tanlang.
-          </p>
-          <div className="purchase-mode-settings">
-            <div className="purchase-mode-switch purchase-mode-switch--large">
-              <button
-                type="button"
-                className={`purchase-mode-btn ${starsPurchaseMode === "robynhood" ? "active robyn" : ""}`}
-                onClick={() => setPurchaseMode("robynhood")}
-                disabled={purchaseModeLoading}
-              >
-                RobynHood
-              </button>
-              <button
-                type="button"
-                className={`purchase-mode-btn ${starsPurchaseMode === "fragment" ? "active frag" : ""}`}
-                onClick={() => setPurchaseMode("fragment")}
-                disabled={purchaseModeLoading}
-              >
-                Fragment (USDT)
-              </button>
-              <button
-                type="button"
-                className={`purchase-mode-btn ${starsPurchaseMode === "paymee" ? "active paymee" : ""}`}
-                onClick={() => setPurchaseMode("paymee")}
-                disabled={purchaseModeLoading}
-              >
-                Paymee API
-              </button>
-            </div>
-            <p className="settings-hint">
-              {starsPurchaseMode === "fragment"
-                ? "Hozir: /usdtstars va /usdtpremium (karta + Fragment)"
-                : starsPurchaseMode === "paymee"
-                  ? "Hozir: /paymeestars va /paymeepremium (karta + StarsPaymee Partner API)"
-                  : "Hozir: /stars va /premium (RobynHood API)"}
-            </p>
-          </div>
-
-          {starsPurchaseMode === "fragment" && (
-            <div className="purchase-mode-settings">
-              <h3 className="settings-section-title">💰 Fragment to‘lov usuli</h3>
-              <p className="settings-section-desc">
-                Fragment hamyonidan stars/premium yuborish: native TON yoki USDT TON.
-              </p>
-              <div className="purchase-mode-switch purchase-mode-switch--large">
-                <button
-                  type="button"
-                  className={`purchase-mode-btn ${fragmentPaymentMethod === "ton" ? "active ton" : ""}`}
-                  onClick={() => setFragmentPayMethod("ton")}
-                  disabled={fragmentPayLoading}
-                >
-                  TON
-                </button>
-                <button
-                  type="button"
-                  className={`purchase-mode-btn ${fragmentPaymentMethod === "usdt_ton" ? "active usdt" : ""}`}
-                  onClick={() => setFragmentPayMethod("usdt_ton")}
-                  disabled={fragmentPayLoading}
-                >
-                  USDT TON
-                </button>
-              </div>
-              <p className="settings-hint">
-                Faol: <strong>{fragmentPaymentMethod === "usdt_ton" ? "USDT TON" : "TON"}</strong> — /usdtstars va /usdtpremium uchun
-              </p>
-            </div>
-          )}
-
-          <p className="settings-section-desc" style={{ marginBottom: "20px" }}>
-            Fragment cookie va test: headerdagi <strong>🍪 Fragment</strong> tab.
+            Yetkazish yagona yo&apos;l orqali: <strong>StarsPaymee Partner API</strong> (stars &amp; premium).
+            Gift — RobynHood. API holati va balansi headerdagi rozetkada ko&apos;rinadi.
           </p>
 
           <h3 className="settings-section-title">🏷️ Chegirma Paketlari</h3>

@@ -3,18 +3,6 @@ import starsSticker from "../../assets/AnimatedSticker_stars.tgs";
 import { TGSSticker } from "../../components/TGSSticker";
 import { useNavigate } from "react-router-dom";
 import apiFetch from "../../utils/apiFetch";
-import {
-  getPremiumPurchasePath,
-  getFragmentPaymentLabel,
-  isCardDeliveryVariant,
-  starsApiPrefix,
-} from "../../utils/starsPurchaseRoute";
-import {
-  isPaymeeInsufficientError,
-  paymeeInsufficientAlertMessage,
-} from "../../utils/paymeeErrors";
-import { PaymeeStockBanner } from "../../components/PaymeeStockBanner";
-import { PaymeeStockAlert } from "../../components/PaymeeStockAlert";
 import { EXPIRED_STARS_MESSAGE, SUPPORT_URL } from "../../utils/support";
 import "./Stars.css";
 
@@ -50,11 +38,7 @@ const StarIcon = () => (
 // 8 daqiqa = 480 sekund
 const POLLING_DURATION = 8 * 60 * 1000; // 8 daqiqa millisekondda
 
-export function StarsPurchasePage({ variant = "robynhood" }) {
-  const isFragment = variant === "fragment";
-  const isPaymee = variant === "paymee";
-  const isCardFlow = isCardDeliveryVariant(variant);
-  const starsApi = starsApiPrefix(variant);
+export function StarsPurchasePage() {
   const CARD_NUMBER = import.meta.env.VITE_CARD_NUMBER;
   const CARD_NAME = import.meta.env.VITE_CARD_NAME;
   const NARX = parseInt(import.meta.env.VITE_NARX);
@@ -84,15 +68,12 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [countdown, setCountdown] = useState(480); // 8 daqiqa
   const [showMorePlans, setShowMorePlans] = useState(false);
-  const [stockUnavailableMessage, setStockUnavailableMessage] = useState("");
-  const [paymeeStockModal, setPaymeeStockModal] = useState(null);
 
   // Promocode state
   const [pramacod, setPramacod] = useState("");
   const [promoMessage, setPromoMessage] = useState("");
   const [promoError, setPromoError] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null);
-  const [fragmentPayLabel, setFragmentPayLabel] = useState("");
 
   // Refs for polling (modal yopilsa ham davom etadi)
   const pollingRef = useRef(null);
@@ -100,17 +81,9 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
 
   const navigate = useNavigate();
 
-  const goToPremium = async () => {
+  const goToPremium = () => {
     setShowModal(false);
-    try {
-      const res = await apiFetch("/api/app-config");
-      const cfg = await res.json();
-      navigate(getPremiumPurchasePath(cfg));
-    } catch {
-      navigate(
-        isPaymee ? "/paymeepremium" : isFragment ? "/usdtpremium" : "/premium"
-      );
-    }
+    navigate("/premium");
   };
 
   const goToHome = () => {
@@ -134,21 +107,6 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
 
   const formatAmount = (num) =>
     num?.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-
-  useEffect(() => {
-    if (!isCardFlow) {
-      setFragmentPayLabel("");
-      return;
-    }
-    if (isPaymee) {
-      setFragmentPayLabel("Paymee API");
-      return;
-    }
-    apiFetch("/api/app-config")
-      .then((r) => r.json())
-      .then((cfg) => setFragmentPayLabel(getFragmentPaymentLabel(cfg)))
-      .catch(() => setFragmentPayLabel("TON"));
-  }, [isCardFlow, isPaymee]);
 
   // Discount paketlarni yuklash (refreshable)
   const fetchDiscountPackages = async () => {
@@ -226,21 +184,15 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
     
     const starNum = parseInt(stars);
     setPriceLoading(true);
-    
+
     // Slot-based narx - backend dan olish
-    apiFetch(isCardFlow ? `${starsApi}/price/${starNum}` : `/api/stars/price/${starNum}`)
+    apiFetch(`/api/stars/price/${starNum}`)
       .then(res => res.json())
       .then(data => {
         if (data.available && data.price) {
           setPrice(data.price);
-          setStockUnavailableMessage("");
         } else {
           setPrice(0);
-          if (isPaymeeInsufficientError(data)) {
-            setStockUnavailableMessage(paymeeInsufficientAlertMessage(data, "stars"));
-          } else {
-            setStockUnavailableMessage("");
-          }
         }
       })
       .catch(() => {
@@ -248,7 +200,7 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
         setPrice(starNum * NARX);
       })
       .finally(() => setPriceLoading(false));
-  }, [stars, isCardFlow, starsApi]);
+  }, [stars]);
 
   // Timer for stars_sent
   useEffect(() => {
@@ -267,7 +219,7 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
     }
   }, [status]);
 
-  // Profil: RobynHood API yoki Fragment (faqat username)
+  // Profil: StarsPaymee Partner API (faqat username, pul yechilmaydi)
   useEffect(() => {
     if (!username) {
       setProfile(null);
@@ -281,27 +233,14 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
           ? username.slice(1)
           : username;
 
-        if (isFragment) {
-          if (/^[a-zA-Z0-9_]{4,32}$/.test(cleanUsername)) {
-            setProfile({ username: cleanUsername, recipient: cleanUsername });
-          } else {
-            setProfile(null);
-          }
-          return;
-        }
-
         const starNum = parseInt(stars, 10);
-        const searchUrl = isPaymee
-          ? `${starsApi}/search`
-          : "/api/search";
-        const searchBody = isPaymee
-          ? { username: cleanUsername, stars: Number.isInteger(starNum) ? starNum : 50 }
-          : { username: cleanUsername };
-
-        const profileRes = await apiFetch(searchUrl, {
+        const profileRes = await apiFetch("/api/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(searchBody),
+          body: JSON.stringify({
+            username: cleanUsername,
+            stars: Number.isInteger(starNum) ? starNum : 50,
+          }),
         });
 
         const data = await profileRes.json();
@@ -313,10 +252,10 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
       } finally {
         setLoadingProfile(false);
       }
-    }, isFragment ? 300 : 1000);
+    }, 1000);
 
     return () => clearTimeout(timeout);
-  }, [username, isFragment, isPaymee, stars, starsApi]);
+  }, [username, stars]);
 
   // Copy card
   const handleCopy = () => {
@@ -542,32 +481,23 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
       return;
     }
 
-    if (!isCardFlow && (!profile || !profile.recipient)) {
+    if (!profile || !profile.recipient) {
       alert("Foydalanuvchi topilmadi!");
       return;
     }
 
     try {
-      const payload = isCardFlow
-        ? {
-            username: cleanUsername,
-            stars: parseInt(stars, 10),
-            ...(isPaymee && price > 0 ? { slot_price: price } : {}),
-            ...(isPaymee && appliedPromo?.newPrice != null
-              ? { final_amount: appliedPromo.newPrice }
-              : {}),
-          }
-        : {
-            username: profile.username,
-            recipient: profile.recipient,
-            stars: parseInt(stars, 10),
-          };
+      const payload = {
+        username: profile.username,
+        recipient: profile.recipient,
+        stars: parseInt(stars, 10),
+      };
 
       if (appliedPromo) {
         payload.applied_promocode = appliedPromo.code;
       }
 
-      const res = await apiFetch(isCardFlow ? `${starsApi}/order` : "/api/order", {
+      const res = await apiFetch("/api/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -576,18 +506,13 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
       // Error tekshirish
       if (!res.ok) {
         const errorData = await res.json();
-        
+
         // SLOTS_FULL xatosi
         if (errorData.code === "SLOTS_FULL") {
           alert("⏳ Hozirda juda ko'p buyurtmalar mavjud.\n\nIltimos, 1-2 daqiqadan keyin qayta urinib ko'ring.");
           return;
         }
 
-        if (isPaymeeInsufficientError(errorData)) {
-          setPaymeeStockModal(paymeeInsufficientAlertMessage(errorData, "stars"));
-          return;
-        }
-        
         throw new Error(errorData.error || "Server xatosi");
       }
 
@@ -630,14 +555,7 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
 
       <div className="stars-page-title">
         <h1>Telegram Stars</h1>
-        <p>
-          xarid qilish
-          {isCardFlow && fragmentPayLabel
-            ? isPaymee
-              ? ` · ${fragmentPayLabel}`
-              : ` · Fragment (${fragmentPayLabel})`
-            : ""}
-        </p>
+        <p>xarid qilish</p>
       </div>
 
       {/* Profile */}
@@ -798,24 +716,11 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
         )}
       </div>
 
-      {stockUnavailableMessage && (
-        <PaymeeStockBanner product="stars" message={stockUnavailableMessage} />
-      )}
-
-      {paymeeStockModal && (
-        <PaymeeStockAlert
-          product="stars"
-          message={paymeeStockModal}
-          onClose={() => setPaymeeStockModal(null)}
-        />
-      )}
-
       <div className="actions" style={{ marginBottom: '20px' }}>
         <button
           type="button"
           className="tg-button"
           onClick={handlePayment}
-          disabled={Boolean(stockUnavailableMessage)}
         >
           Stars olish {price > 0 && `- ${formatAmount(appliedPromo ? appliedPromo.newPrice : price)} so'm`}
         </button>
@@ -1117,5 +1022,5 @@ export function StarsPurchasePage({ variant = "robynhood" }) {
 }
 
 export default function Stars() {
-  return <StarsPurchasePage variant="robynhood" />;
+  return <StarsPurchasePage />;
 }

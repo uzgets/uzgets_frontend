@@ -311,6 +311,47 @@ html, body {
   width: 72px;
 }
 
+/* StarsPaymee balans + health rozetkasi (header) */
+.paymee-hdr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+}
+.paymee-hdr-badge.ok {
+  background: rgba(0, 200, 120, 0.12);
+  border-color: rgba(0, 200, 120, 0.4);
+  color: #18c46e;
+}
+.paymee-hdr-badge.down {
+  background: rgba(255, 59, 48, 0.12);
+  border-color: rgba(255, 59, 48, 0.4);
+  color: #ff5b50;
+}
+.paymee-hdr-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.paymee-hdr-dot.on {
+  background: #18c46e;
+  box-shadow: 0 0 6px rgba(24, 196, 110, 0.8);
+}
+.paymee-hdr-dot.off {
+  background: #ff5b50;
+}
+.paymee-hdr-bal {
+  color: #fff;
+}
+
 .admin-custom-select--filter {
   flex: 0 0 auto;
   width: 132px;

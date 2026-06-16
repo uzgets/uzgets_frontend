@@ -7,27 +7,13 @@ import premiumGif from "../../assets/premium_gif.gif";
 import premiumSticker from "../../assets/AnimatedSticker_premium.tgs";
 import { TGSSticker } from "../../components/TGSSticker";
 import apiFetch from "../../utils/apiFetch";
-import {
-  getFragmentPaymentLabel,
-  isCardDeliveryVariant,
-  premiumApiPrefix,
-} from "../../utils/starsPurchaseRoute";
-import {
-  isPaymeeInsufficientError,
-  paymeeInsufficientAlertMessage,
-} from "../../utils/paymeeErrors";
-import { PaymeeStockBanner } from "../../components/PaymeeStockBanner";
-import { PaymeeStockAlert } from "../../components/PaymeeStockAlert";
 import { EXPIRED_PREMIUM_MESSAGE, SUPPORT_URL } from "../../utils/support";
 function normalizePremiumPollStatus(status) {
   if (status === "completed" || status === "delivered") return "premium_sent";
   return status;
 }
 
-export function PremiumPurchasePage({ variant = "robynhood" }) {
-  const isPaymee = variant === "paymee";
-  const isCardFlow = isCardDeliveryVariant(variant);
-  const premiumApi = premiumApiPrefix(variant);
+export function PremiumPurchasePage() {
   const navigate = useNavigate();
   const PREMIUM_3 = parseInt(import.meta.env.VITE_PREMIUM_3);
   const PREMIUM_6 = parseInt(import.meta.env.VITE_PREMIUM_6);
@@ -73,12 +59,6 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
   const [promoMessage, setPromoMessage] = useState("");
   const [promoError, setPromoError] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState(null);
-  const [fragmentPayLabel, setFragmentPayLabel] = useState("");
-  const [fragmentPlanPrice, setFragmentPlanPrice] = useState(null);
-  const [fragmentPriceLoading, setFragmentPriceLoading] = useState(false);
-  const [fragmentSlotsFull, setFragmentSlotsFull] = useState(false);
-  const [paymeeStockMessage, setPaymeeStockMessage] = useState("");
-  const [paymeeStockModal, setPaymeeStockModal] = useState(null);
 
   // Format
   const formatAmount = (num) =>
@@ -114,52 +94,6 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
     };
   }, [showModal, showWarningModal, navigate]);
 
-  useEffect(() => {
-    if (!isCardFlow) {
-      setFragmentPayLabel("");
-      return;
-    }
-    if (isPaymee) {
-      setFragmentPayLabel("Paymee API");
-      return;
-    }
-    apiFetch("/api/app-config")
-      .then((r) => r.json())
-      .then((cfg) => setFragmentPayLabel(getFragmentPaymentLabel(cfg)))
-      .catch(() => setFragmentPayLabel("TON"));
-  }, [isCardFlow, isPaymee]);
-
-  // Fragment: slot narxi backenddan (to'lov summasi mos bo'lishi uchun)
-  useEffect(() => {
-    if (!isCardFlow) {
-      setFragmentPlanPrice(null);
-      setFragmentSlotsFull(false);
-      return;
-    }
-
-    setFragmentPriceLoading(true);
-    apiFetch(`${premiumApi}/price/${selectedPlan.months}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.available && data.price) {
-          setFragmentPlanPrice(data.price);
-          setFragmentSlotsFull(false);
-          setPaymeeStockMessage("");
-        } else {
-          setFragmentPlanPrice(null);
-          setFragmentSlotsFull(true);
-          setPaymeeStockMessage(
-            isPaymeeInsufficientError(data) ? paymeeInsufficientAlertMessage(data, "premium") : ""
-          );
-        }
-      })
-      .catch(() => {
-        setFragmentPlanPrice(null);
-        setFragmentSlotsFull(false);
-      })
-      .finally(() => setFragmentPriceLoading(false));
-  }, [isCardFlow, selectedPlan.months, premiumApi]);
-
   // ================================
   // 🔍 PREMIUM SEARCH
   // ================================
@@ -184,8 +118,7 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
           return;
         }
 
-        const searchUrl = isCardFlow ? `${premiumApi}/search` : "/api/premium/search";
-        const res = await apiFetch(searchUrl, {
+        const res = await apiFetch("/api/premium/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -229,7 +162,7 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
       clearTimeout(delay);
       controller.abort();
     };
-  }, [username, selectedPlan.months, isCardFlow, premiumApi]);
+  }, [username, selectedPlan.months]);
 
   // 🔹 Telegramdan username olish
   const fillMyUsername = () => {
@@ -310,32 +243,17 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
       return;
     }
 
-    if (isCardFlow && fragmentSlotsFull) {
-      alert("⏳ Hozirda juda ko'p buyurtmalar mavjud.\n\nIltimos, 1-2 daqiqadan keyin qayta urinib ko'ring.");
-      return;
-    }
-
     setLoadingBuy(true);
 
     try {
-      const orderBody = isCardFlow
-        ? {
-            username: cleanUsername,
-            months: selectedPlan.months,
-            applied_promocode: appliedPromo?.code || null,
-            ...(isPaymee && fragmentPlanPrice ? { slot_price: fragmentPlanPrice } : {}),
-            ...(isPaymee && appliedPromo?.new_price != null
-              ? { final_amount: appliedPromo.new_price }
-              : {}),
-          }
-        : {
-            username: profile.username,
-            recipient: profile.recipient,
-            months: selectedPlan.months,
-            applied_promocode: appliedPromo?.code || null,
-          };
+      const orderBody = {
+        username: profile.username,
+        recipient: profile.recipient,
+        months: selectedPlan.months,
+        applied_promocode: appliedPromo?.code || null,
+      };
 
-      const res = await apiFetch(isCardFlow ? `${premiumApi}/order` : "/api/premium", {
+      const res = await apiFetch("/api/premium", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderBody),
@@ -355,10 +273,6 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
               "Bu foydalanuvchida allaqachon Telegram Premium mavjud."
           );
           setProfile(null);
-          return;
-        }
-        if (isPaymeeInsufficientError(data)) {
-          setPaymeeStockModal(paymeeInsufficientAlertMessage(data, "premium"));
           return;
         }
         alert(data.error || "Order yaratishda xato");
@@ -389,10 +303,7 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
     stopPolling();
     pollingRef.current = setInterval(async () => {
       try {
-        const pollUrl = isCardFlow
-          ? `${premiumApi}/transactions/${id}`
-          : `/api/premium/transactions/${id}`;
-        const res = await apiFetch(pollUrl);
+        const res = await apiFetch(`/api/premium/transactions/${id}`);
         const data = await res.json();
 
         if (!res.ok) return;
@@ -531,14 +442,7 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
 
       <div className="premium-page-title">
         <h1>Telegram Premium</h1>
-        <p>
-          xarid qilish
-          {isCardFlow && fragmentPayLabel
-            ? isPaymee
-              ? ` · ${fragmentPayLabel}`
-              : ` · Fragment (${fragmentPayLabel})`
-            : ""}
-        </p>
+        <p>xarid qilish</p>
       </div>
 
       {/* SEARCH */}
@@ -592,45 +496,21 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
 
             <div className="narx">
               <span>{p.label}</span>
-              <span>
-                {isCardFlow && selectedPlan.id === p.id
-                  ? fragmentPriceLoading
-                    ? "..."
-                    : fragmentPlanPrice != null
-                      ? `${formatAmount(fragmentPlanPrice)} so'm`
-                      : fragmentSlotsFull
-                        ? "Band"
-                        : "—"
-                  : `${formatAmount(p.price)} so'm`}
-              </span>
+              <span>{`${formatAmount(p.price)} so'm`}</span>
             </div>
             <span style={{ marginLeft: "auto", fontSize: "13px", color: "#0088cc", fontWeight: "600" }}>(Avto)</span>
           </label>
         ))}
       </div>
 
-      {paymeeStockMessage && (
-        <PaymeeStockBanner product="premium" message={paymeeStockMessage} />
-      )}
-
-      {paymeeStockModal && (
-        <PaymeeStockAlert
-          product="premium"
-          message={paymeeStockModal}
-          onClose={() => setPaymeeStockModal(null)}
-        />
-      )}
-
       <div className="actions" style={{ marginTop: "25px", marginBottom: "15px" }}>
         <button
           disabled={
             loadingBuy ||
             loadingProfile ||
-            Boolean(paymeeStockMessage) ||
             Boolean(searchError) ||
             !profile?.username ||
-            !profile?.recipient ||
-            (isCardFlow && (fragmentSlotsFull || fragmentPriceLoading || !fragmentPlanPrice))
+            !profile?.recipient
           }
           onClick={handleCreateOrder}
         >
@@ -979,5 +859,5 @@ export function PremiumPurchasePage({ variant = "robynhood" }) {
 }
 
 export default function Premium() {
-  return <PremiumPurchasePage variant="robynhood" />;
+  return <PremiumPurchasePage />;
 }
