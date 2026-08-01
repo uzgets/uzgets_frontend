@@ -11,10 +11,8 @@ import { TGSSticker } from "../../components/TGSSticker";
 import WebApp from "@twa-dev/sdk";
 import starsjoyLogo from "../../assets/starsjoy.jpg";
 import { SUPPORT_URL } from "../../utils/support";
+import { usePaymentCard } from "../../utils/paymentCard";
 import "./gift.css";
-
-const CARD_NUMBER = import.meta.env.VITE_CARD_NUMBER;
-const CARD_NAME = import.meta.env.VITE_CARD_NAME;
 
 // Gift IDlar - har bir gift fayl nomi gift ID ga mos keladi (masalan: 5170145012310081615.tgs)
 const GIFTS = [
@@ -57,6 +55,9 @@ const formatTime = (sec) => {
 export default function Gift() {
   const navigate = useNavigate();
   const { t } = useTranslation();
+
+  // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
+  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
 
   // Step 1: Recipient
   const [username, setUsername] = useState("");

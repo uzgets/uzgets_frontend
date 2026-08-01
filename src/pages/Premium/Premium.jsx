@@ -7,6 +7,7 @@ import premiumGif from "../../assets/premium_gif.gif";
 import premiumSticker from "../../assets/AnimatedSticker_premium.tgs";
 import { TGSSticker } from "../../components/TGSSticker";
 import apiFetch from "../../utils/apiFetch";
+import { usePaymentCard } from "../../utils/paymentCard";
 import { EXPIRED_PREMIUM_MESSAGE, SUPPORT_URL } from "../../utils/support";
 function normalizePremiumPollStatus(status) {
   if (status === "completed" || status === "delivered") return "premium_sent";
@@ -18,8 +19,8 @@ export function PremiumPurchasePage() {
   const PREMIUM_3 = parseInt(import.meta.env.VITE_PREMIUM_3);
   const PREMIUM_6 = parseInt(import.meta.env.VITE_PREMIUM_6);
   const PREMIUM_12 = parseInt(import.meta.env.VITE_PREMIUM_12);
-  const CARD_NUMBER = import.meta.env.VITE_CARD_NUMBER;
-  const CARD_NAME = import.meta.env.VITE_CARD_NAME;
+  // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
+  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
 
   // ====================
   // STATE

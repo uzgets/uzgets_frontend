@@ -4,6 +4,10 @@ import { TGSSticker } from "../../components/TGSSticker";
 import adminSticker from "../../assets/AnimatedSticker_admin.tgs";
 import apiFetch from "../../utils/apiFetch";
 import AdminCustomSelect from "../../components/AdminCustomSelect";
+import { runQueued } from "../../utils/adminRequestQueue";
+
+// Har bir tabda avval nechta yozuv olinishi kerak
+const PAGE_SIZE = 8;
 
 const ORDER_STATUS_FILTER_OPTIONS = [
   { value: "all", label: "Hammasi", icon: "📋" },
@@ -144,6 +148,12 @@ export default function AdminPanel() {
   // New: expanded order & show all
   const [expandedId, setExpandedId] = useState(null);
   const [showAll, setShowAll] = useState(false);
+  const [txVisibleCount, setTxVisibleCount] = useState(PAGE_SIZE);
+  const [txTotal, setTxTotal] = useState(null);
+  const [txLoadingMore, setTxLoadingMore] = useState(false);
+  const [usersVisibleCount, setUsersVisibleCount] = useState(PAGE_SIZE);
+  const [usersTotal, setUsersTotal] = useState(null);
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false);
 
   // Referral withdrawals state
   const [refWithdrawals, setRefWithdrawals] = useState([]);
@@ -174,6 +184,11 @@ export default function AdminPanel() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
+  // 💳 To'lov kartasi (UZCARD ⇄ HUMO)
+  const [cardProvider, setCardProvider] = useState("uzcard");
+  const [cardProviders, setCardProviders] = useState([]);
+  const [cardSwitchLoading, setCardSwitchLoading] = useState(null); // almashtirilayotgan provider
+
   // StarsPaymee Partner API health (header rozetkasi)
   const [paymeeHealth, setPaymeeHealth] = useState({ ok: false, fragment_ready: false, version: null, error: null });
 
@@ -198,6 +213,8 @@ export default function AdminPanel() {
     failed: 0
   });
   const [premiumShowAll, setPremiumShowAll] = useState(false);
+  const [premiumTotal, setPremiumTotal] = useState(null);
+  const [premiumLoadingMore, setPremiumLoadingMore] = useState(false);
 
   // Manual Premium Order state
   const [manualPremiumModal, setManualPremiumModal] = useState(null); // "1_oy" | "1_yil" | null
@@ -217,6 +234,8 @@ export default function AdminPanel() {
     failed: 0
   });
   const [giftShowAll, setGiftShowAll] = useState(false);
+  const [giftTotal, setGiftTotal] = useState(null);
+  const [giftLoadingMore, setGiftLoadingMore] = useState(false);
   const [adminSendingOrderId, setAdminSendingOrderId] = useState(null);
 
   // Analytics state
@@ -270,6 +289,8 @@ export default function AdminPanel() {
   const applySettingsFromApi = (data) => {
     if (!data) return;
     if (data.maintenance !== undefined) setMaintenanceMode(Boolean(data.maintenance));
+    if (data.card_provider) setCardProvider(data.card_provider);
+    if (Array.isArray(data.card_providers)) setCardProviders(data.card_providers);
   };
 
   const fetchAdminSettings = async () => {
@@ -303,6 +324,49 @@ export default function AdminPanel() {
       console.error("Maintenance toggle xato:", err);
     }
     setMaintenanceLoading(false);
+  };
+
+  // ========== 💳 TO'LOV KARTASI (UZCARD ⇄ HUMO) ==========
+  const switchPaymentCard = async (provider) => {
+    if (!provider || provider === cardProvider || cardSwitchLoading) return;
+
+    const target = cardProviders.find((c) => c.provider === provider);
+    const label = target?.label || provider.toUpperCase();
+
+    if (target && !target.configured) {
+      alert(`❌ ${label} kartasi to'liq sozlanmagan (karta raqami yoki SMS chat ID yo'q).`);
+      return;
+    }
+
+    const ok = window.confirm(
+      `💳 To'lov kartasi ${label} ga o'tkazilsinmi?\n\n` +
+        `• Karta: ${target?.card_number_formatted || "-"}\n` +
+        `• Egasi: ${target?.card_name || "-"}\n` +
+        `• SMS chat ID: ${target?.chat_id || "-"}\n\n` +
+        `Shundan keyin foydalanuvchilarga shu karta ko'rsatiladi va to'lov SMS'lari faqat shu chatdan qabul qilinadi.`
+    );
+    if (!ok) return;
+
+    setCardSwitchLoading(provider);
+    try {
+      const res = await apiFetch("/api/admin/payment-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        applySettingsFromApi(data);
+        alert(`✅ Faol karta: ${data.card_provider_label} (***${data.card_last4})`);
+      } else {
+        alert(`❌ Xato: ${data.error || "Karta almashtirilmadi"}`);
+      }
+    } catch (err) {
+      console.error("Karta almashtirish xato:", err);
+      alert("❌ Server bilan bog'lanib bo'lmadi");
+    } finally {
+      setCardSwitchLoading(null);
+    }
   };
 
   // ========== WALLET & PRICES FUNCTION ==========
@@ -420,40 +484,39 @@ export default function AdminPanel() {
     }
   };
 
-  // Fetch wallet when analytics tab is active
-  useEffect(() => {
-    if (activeTab === "analytics" && isAuthenticated) {
-      fetchWalletAndPrices();
-    }
-  }, [activeTab, isAuthenticated]);
+  // Analytics tabga o'tganda avtomatik hech narsa yuklamaymiz — foydalanuvchi tugma bossin
 
   // ========== ANALYTICS FUNCTION ==========
-  const fetchAnalytics = async () => {
-    if (!isAuthenticated) return;
-    setAnalyticsLoading(true);
-    try {
-      // Get date range based on period
-      const now = new Date();
-      let startDate = null;
-      
-      if (analyticsPeriod === "day") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      } else if (analyticsPeriod === "week") {
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      } else if (analyticsPeriod === "month") {
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-      }
+  const fetchAnalytics = () =>
+    runQueued(
+      "tab:analytics",
+      async () => {
+        if (!isAuthenticated) return;
+        setAnalyticsLoading(true);
+        try {
+          const now = new Date();
+          let startDate = null;
+          if (analyticsPeriod === "day") {
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          } else if (analyticsPeriod === "week") {
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          } else if (analyticsPeriod === "month") {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          }
 
-      // Fetch all data
-      const [starsRes, premiumRes, giftRes] = await Promise.all([
-        apiFetch("/api/transactions/all"),
-        apiFetch("/api/admin/premium/list"),
-        apiFetch("/api/admin/gift/list")
-      ]);
+          // Analitika uchun to'liq ma'lumot navbat bo'yicha (ketma-ket)
+          const starsRes = await apiFetch("/api/transactions/all");
+          const starsRaw = await starsRes.json();
+          const starsData = Array.isArray(starsRaw)
+            ? starsRaw
+            : Array.isArray(starsRaw.items)
+              ? starsRaw.items
+              : [];
 
-      const starsData = await starsRes.json();
-      const premiumJson = await premiumRes.json();
-      const giftJson = await giftRes.json();
+          const premiumRes = await apiFetch("/api/admin/premium/list");
+          const premiumJson = await premiumRes.json();
+          const giftRes = await apiFetch("/api/admin/gift/list");
+          const giftJson = await giftRes.json();
 
       // Extract arrays (stars is direct array, premium/gift have .orders)
       const premiumData = premiumJson.orders || [];
@@ -569,24 +632,22 @@ export default function AdminPanel() {
         });
       };
 
-      aggregateToDaily(completedStars, "stars");
-      aggregateToDaily(completedPremium, "premium");
-      aggregateToDaily(completedGift, "gift");
+          aggregateToDaily(completedStars, "stars");
+          aggregateToDaily(completedPremium, "premium");
+          aggregateToDaily(completedGift, "gift");
 
-      setDailyStats(Object.values(dailyMap));
-    } catch (err) {
-      console.error("❌ Analytics fetch error:", err);
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
+          setDailyStats(Object.values(dailyMap));
+        } catch (err) {
+          console.error("❌ Analytics fetch error:", err);
+        } finally {
+          setAnalyticsLoading(false);
+        }
+      },
+      { signature: `analytics:${analyticsPeriod}` }
+    );
 
-  // Fetch analytics when period changes
-  useEffect(() => {
-    if (activeTab === "analytics" && isAuthenticated) {
-      fetchAnalytics();
-    }
-  }, [analyticsPeriod, activeTab, isAuthenticated]);
+  // Analitika faqat foydalanuvchi tugma bosganda ishlaydi
+  // (analyticsPeriod o'zgarganida avtomatik so'rov yubormaymiz)
 
   // Header rozetkasi uchun StarsPaymee balans + health (autentifikatsiyadan keyin bir marta)
   useEffect(() => {
@@ -597,95 +658,204 @@ export default function AdminPanel() {
   }, [isAuthenticated]);
 
   // ========== ALL FUNCTIONS ==========
-  const fetchTransactions = async () => {
+  const fetchTransactions = async ({
+    limit = PAGE_SIZE,
+    offset = 0,
+    append = false,
+    withStats = true,
+  } = {}) => {
     if (!isAuthenticated) return;
-    setLoading(true);
-    try {
-      let url = "/api/transactions/all";
-      if (filter !== "all") {
-        url = `/api/transactions/status/${filter}`;
-      }
+    const signature = `${filter}:${limit}:${offset}:${append ? 1 : 0}`;
+    return runQueued(
+      "tab:transactions",
+      async () => {
+        if (append) setTxLoadingMore(true);
+        else setLoading(true);
+        try {
+          let url =
+            filter !== "all"
+              ? `/api/transactions/status/${filter}`
+              : "/api/transactions/all";
+          const params = new URLSearchParams();
+          params.set("limit", String(limit));
+          params.set("offset", String(offset));
+          if (withStats) params.set("with_stats", "1");
+          params.set("with_total", "1");
+          url += `?${params.toString()}`;
 
-      const res = await apiFetch(url);
-      const data = await res.json();
-      setTransactions(data);
+          const res = await apiFetch(url);
+          const data = await res.json();
+          const items = Array.isArray(data)
+            ? data
+            : Array.isArray(data.items)
+              ? data.items
+              : [];
 
-      const stat = {
-        totalStars: 0,
-        completed: 0,
-        expired: 0,
-        pending: 0,
-        stars_sent: 0,
-        failed: 0,
-        error: 0,
-      };
-
-      data.forEach((tx) => {
-        stat.totalStars += tx.stars;
-        if (stat[tx.status] !== undefined) stat[tx.status]++;
-      });
-
-      setStats(stat);
-    } catch (err) {
-      console.error("❌ Transactionlarni olishda xato:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    if (!isAuthenticated) return;
-    setLoading(true);
-    try {
-      const res = await apiFetch("/api/admin/users");
-      const data = await res.json();
-      setUsers(data);
-
-      const todayStr = new Date().toDateString();
-      const stats = {
-        total: data.length,
-        today: data.filter(u => new Date(u.created_at).toDateString() === todayStr).length,
-        totalReferrals: data.reduce((acc, u) => acc + (u.total_referrals || 0), 0)
-      };
-      setUserStats(stats);
-    } catch (err) {
-      console.error("❌ Users fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPremiumOrders = async () => {
-    if (!isAuthenticated) return;
-    setLoading(true);
-    try {
-      const res = await apiFetch(`/api/admin/premium/list?status=${premiumFilter}`);
-      const data = await res.json();
-      
-      if (data.success) {
-        setPremiumOrders(data.orders || []);
-        
-        // Calculate stats from all orders
-        const allRes = await apiFetch("/api/admin/premium/list?status=all");
-        const allData = await allRes.json();
-        
-        if (allData.success) {
-          const orders = allData.orders || [];
-          const stats = {
-            total: orders.length,
-            pending: orders.filter(o => o.status === 'pending').length,
-            delivered: orders.filter(o => o.status === 'delivered' || o.status === 'premium_sent').length,
-            expired: orders.filter(o => o.status === 'expired').length,
-            failed: orders.filter(o => o.status === 'failed' || o.status === 'error').length
-          };
-          setPremiumStats(stats);
+          setTransactions((prev) => (append ? [...prev, ...items] : items));
+          if (data && !Array.isArray(data)) {
+            if (data.total != null) setTxTotal(data.total);
+            if (data.stats) setStats(data.stats);
+          } else if (!append) {
+            const stat = {
+              totalStars: 0,
+              completed: 0,
+              expired: 0,
+              pending: 0,
+              stars_sent: 0,
+              failed: 0,
+              error: 0,
+            };
+            items.forEach((tx) => {
+              stat.totalStars += tx.stars || 0;
+              if (stat[tx.status] !== undefined) stat[tx.status]++;
+            });
+            setStats(stat);
+            setTxTotal(null);
+          }
+          setTxVisibleCount(offset + items.length);
+        } catch (err) {
+          console.error("❌ Transactionlarni olishda xato:", err);
+        } finally {
+          if (append) setTxLoadingMore(false);
+          else setLoading(false);
         }
-      }
-    } catch (err) {
-      console.error("❌ Premium orders fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+      },
+      { signature }
+    );
+  };
+
+  const loadMoreTransactions = () => {
+    if (txLoadingMore) return;
+    fetchTransactions({
+      limit: PAGE_SIZE,
+      offset: transactions.length,
+      append: true,
+      withStats: false,
+    });
+  };
+
+  const fetchUsers = async ({
+    limit = PAGE_SIZE,
+    offset = 0,
+    append = false,
+    withStats = true,
+  } = {}) => {
+    if (!isAuthenticated) return;
+    const signature = `${limit}:${offset}:${append ? 1 : 0}`;
+    return runQueued(
+      "tab:users",
+      async () => {
+        if (append) setUsersLoadingMore(true);
+        else setLoading(true);
+        try {
+          const params = new URLSearchParams();
+          params.set("limit", String(limit));
+          params.set("offset", String(offset));
+          if (withStats) params.set("with_stats", "1");
+          params.set("with_total", "1");
+          const res = await apiFetch(`/api/admin/users?${params.toString()}`);
+          const data = await res.json();
+          const items = Array.isArray(data)
+            ? data
+            : Array.isArray(data.items)
+              ? data.items
+              : [];
+
+          setUsers((prev) => (append ? [...prev, ...items] : items));
+          if (data && !Array.isArray(data)) {
+            if (data.total != null) setUsersTotal(data.total);
+            if (data.stats) setUserStats(data.stats);
+          } else if (!append) {
+            const todayStr = new Date().toDateString();
+            setUserStats({
+              total: items.length,
+              today: items.filter(
+                (u) => new Date(u.created_at).toDateString() === todayStr
+              ).length,
+              totalReferrals: items.reduce(
+                (acc, u) => acc + (u.total_referrals || 0),
+                0
+              ),
+            });
+            setUsersTotal(null);
+          }
+          setUsersVisibleCount(offset + items.length);
+        } catch (err) {
+          console.error("❌ Users fetch error:", err);
+        } finally {
+          if (append) setUsersLoadingMore(false);
+          else setLoading(false);
+        }
+      },
+      { signature }
+    );
+  };
+
+  const loadMoreUsers = () => {
+    if (usersLoadingMore) return;
+    fetchUsers({
+      limit: PAGE_SIZE,
+      offset: users.length,
+      append: true,
+      withStats: false,
+    });
+  };
+
+  const fetchPremiumOrders = async ({
+    limit = PAGE_SIZE,
+    offset = 0,
+    append = false,
+    withStats = true,
+  } = {}) => {
+    if (!isAuthenticated) return;
+    const signature = `${premiumFilter}:${limit}:${offset}:${append ? 1 : 0}`;
+    return runQueued(
+      "tab:premium",
+      async () => {
+        if (append) setPremiumLoadingMore(true);
+        else setLoading(true);
+        try {
+          const params = new URLSearchParams();
+          params.set("status", premiumFilter);
+          params.set("limit", String(limit));
+          params.set("offset", String(offset));
+          if (withStats) params.set("with_stats", "1");
+          params.set("with_total", "1");
+          const res = await apiFetch(`/api/admin/premium/list?${params.toString()}`);
+          const data = await res.json();
+          if (!data.success) return;
+          const items = data.orders || [];
+          setPremiumOrders((prev) => (append ? [...prev, ...items] : items));
+          if (data.total != null) setPremiumTotal(data.total);
+          if (data.stats) {
+            setPremiumStats({
+              total: data.stats.total || 0,
+              pending: data.stats.pending || 0,
+              premium_sent: data.stats.delivered || 0,
+              delivered: data.stats.delivered || 0,
+              expired: data.stats.expired || 0,
+              failed: data.stats.failed || 0,
+            });
+          }
+        } catch (err) {
+          console.error("❌ Premium orders fetch error:", err);
+        } finally {
+          if (append) setPremiumLoadingMore(false);
+          else setLoading(false);
+        }
+      },
+      { signature }
+    );
+  };
+
+  const loadMorePremium = () => {
+    if (premiumLoadingMore) return;
+    fetchPremiumOrders({
+      limit: PAGE_SIZE,
+      offset: premiumOrders.length,
+      append: true,
+      withStats: false,
+    });
   };
 
   const fetchRefWithdrawals = async () => {
@@ -702,38 +872,52 @@ export default function AdminPanel() {
     }
   };
 
-  const fetchGiftOrders = async () => {
+  const fetchGiftOrders = async ({
+    limit = PAGE_SIZE,
+    offset = 0,
+    append = false,
+    withStats = true,
+  } = {}) => {
     if (!isAuthenticated) return;
-    setLoading(true);
-    try {
-      const res = await apiFetch(`/api/admin/gift/list?status=${giftFilter}`);
-      const data = await res.json();
-
-      if (data.success) {
-        setGiftOrders(data.orders || []);
-
-        // Calculate stats from all orders
-        const allRes = await apiFetch("/api/admin/gift/list?status=all");
-        const allData = await allRes.json();
-
-        if (allData.success) {
-          const orders = allData.orders || [];
-          const stats = {
-            total: orders.length,
-            pending: orders.filter(o => o.status === 'pending').length,
-            completed: orders.filter(o => o.status === 'completed').length,
-            gift_sent: orders.filter(o => o.status === 'gift_sent').length,
-            expired: orders.filter(o => o.status === 'expired').length,
-            failed: orders.filter(o => o.status === 'failed' || o.status === 'error').length
-          };
-          setGiftStats(stats);
+    const signature = `${giftFilter}:${limit}:${offset}:${append ? 1 : 0}`;
+    return runQueued(
+      "tab:gift",
+      async () => {
+        if (append) setGiftLoadingMore(true);
+        else setLoading(true);
+        try {
+          const params = new URLSearchParams();
+          params.set("status", giftFilter);
+          params.set("limit", String(limit));
+          params.set("offset", String(offset));
+          if (withStats) params.set("with_stats", "1");
+          params.set("with_total", "1");
+          const res = await apiFetch(`/api/admin/gift/list?${params.toString()}`);
+          const data = await res.json();
+          if (!data.success) return;
+          const items = data.orders || [];
+          setGiftOrders((prev) => (append ? [...prev, ...items] : items));
+          if (data.total != null) setGiftTotal(data.total);
+          if (data.stats) setGiftStats(data.stats);
+        } catch (err) {
+          console.error("❌ Gift orders fetch error:", err);
+        } finally {
+          if (append) setGiftLoadingMore(false);
+          else setLoading(false);
         }
-      }
-    } catch (err) {
-      console.error("❌ Gift orders fetch error:", err);
-    } finally {
-      setLoading(false);
-    }
+      },
+      { signature }
+    );
+  };
+
+  const loadMoreGift = () => {
+    if (giftLoadingMore) return;
+    fetchGiftOrders({
+      limit: PAGE_SIZE,
+      offset: giftOrders.length,
+      append: true,
+      withStats: false,
+    });
   };
 
   // Discount packages fetch
@@ -1021,17 +1205,19 @@ export default function AdminPanel() {
   };
 
   // ========== ALL useEffect HOOKS ==========
-  // Fetch data based on active tab
+  // Fetch data based on active tab — faqat oxirgi 8 ta yozuv (navbat orqali)
   useEffect(() => {
     if (!isAuthenticated) return;
     if (activeTab === "transactions") {
-      fetchTransactions();
+      setTxVisibleCount(PAGE_SIZE);
+      fetchTransactions({ limit: PAGE_SIZE, offset: 0, withStats: true });
     } else if (activeTab === "users") {
-      fetchUsers();
+      setUsersVisibleCount(PAGE_SIZE);
+      fetchUsers({ limit: PAGE_SIZE, offset: 0, withStats: true });
     } else if (activeTab === "premium") {
-      fetchPremiumOrders();
+      fetchPremiumOrders({ limit: PAGE_SIZE, offset: 0, withStats: true });
     } else if (activeTab === "gift") {
-      fetchGiftOrders();
+      fetchGiftOrders({ limit: PAGE_SIZE, offset: 0, withStats: true });
     } else if (activeTab === "settings") {
       fetchDiscountPackages();
     } else if (activeTab === "referrals") {
@@ -1049,11 +1235,15 @@ export default function AdminPanel() {
     let interval;
     if (autoRefresh) {
       interval = setInterval(() => {
-        if (activeTab === "transactions") fetchTransactions();
-        else if (activeTab === "users") fetchUsers();
-        else if (activeTab === "premium") fetchPremiumOrders();
-        else if (activeTab === "gift") fetchGiftOrders();
-      }, 30000); // 30 seconds instead of 5
+        if (activeTab === "transactions")
+          fetchTransactions({ limit: PAGE_SIZE, offset: 0, withStats: true });
+        else if (activeTab === "users")
+          fetchUsers({ limit: PAGE_SIZE, offset: 0, withStats: true });
+        else if (activeTab === "premium")
+          fetchPremiumOrders({ limit: PAGE_SIZE, offset: 0, withStats: true });
+        else if (activeTab === "gift")
+          fetchGiftOrders({ limit: PAGE_SIZE, offset: 0, withStats: true });
+      }, 30000);
     }
     return () => clearInterval(interval);
   }, [autoRefresh, filter, activeTab, isAuthenticated]);
@@ -1616,10 +1806,8 @@ export default function AdminPanel() {
     );
   });
 
-  // Show last 20 or all
-  const displayedTransactions = showAll 
-    ? filteredTransactions 
-    : filteredTransactions.slice(0, 20);
+  // Frontend allaqachon serverdan 8 tadan olgan — hammasini ko'rsatamiz
+  const displayedTransactions = filteredTransactions;
 
   const getStatusColor = (status) => {
     const colors = {
@@ -1990,6 +2178,26 @@ export default function AdminPanel() {
             ))}
           </div>
 
+          {/* Analitika faqat foydalanuvchi tugma bosganda yuklanadi */}
+          <div style={{ display: "flex", gap: 8, margin: "12px 0" }}>
+            <button
+              className="show-all-btn"
+              style={{ flex: 1 }}
+              disabled={analyticsLoading}
+              onClick={fetchAnalytics}
+            >
+              {analyticsLoading ? "⏳ Yuklanmoqda..." : "📊 Analitikani yuklash"}
+            </button>
+            <button
+              className="show-all-btn"
+              style={{ flex: 1 }}
+              disabled={walletLoading}
+              onClick={fetchWalletAndPrices}
+            >
+              {walletLoading ? "⏳..." : "💳 Balansni yangilash"}
+            </button>
+          </div>
+
           {/* Wallet Info List */}
           <div className="info-list wallet-list">
             <div className="info-row">
@@ -2245,18 +2453,21 @@ export default function AdminPanel() {
                 ))
               )}
 
-              {/* Show All Button */}
-              {filteredTransactions.length > 20 && !showAll && (
-                <button className="show-all-btn" onClick={() => setShowAll(true)}>
-                  📋 Barcha buyurtmalarni ko'rish ({filteredTransactions.length} ta)
-                </button>
-              )}
-
-              {showAll && filteredTransactions.length > 20 && (
-                <button className="show-all-btn" onClick={() => setShowAll(false)}>
-                  🔼 Faqat oxirgi 20 tani ko'rish
-                </button>
-              )}
+              {/* Load more (8 tadan) */}
+              {(txTotal == null || transactions.length < txTotal) &&
+                transactions.length > 0 && (
+                  <button
+                    className="show-all-btn"
+                    disabled={txLoadingMore}
+                    onClick={loadMoreTransactions}
+                  >
+                    {txLoadingMore
+                      ? "⏳ Yuklanmoqda..."
+                      : `📋 Yana ${PAGE_SIZE} ta${
+                          txTotal != null ? ` (jami: ${txTotal})` : ""
+                        }`}
+                  </button>
+                )}
             </div>
           )}
         </div>
@@ -2311,7 +2522,6 @@ export default function AdminPanel() {
                       tx.id.toString().includes(s)
                     );
                   })
-                  .slice(0, giftShowAll ? giftOrders.length : 20)
                   .map((tx) => (
                   <div key={tx.id} className={getOrderCardClassName(tx)}>
                     <div 
@@ -2434,18 +2644,21 @@ export default function AdminPanel() {
                 ))
               )}
 
-              {/* Show All Button */}
-              {giftOrders.length > 20 && !giftShowAll && (
-                <button className="show-all-btn" onClick={() => setGiftShowAll(true)}>
-                  🎁 Barcha buyurtmalarni ko'rish ({giftOrders.length} ta)
-                </button>
-              )}
-
-              {giftShowAll && giftOrders.length > 20 && (
-                <button className="show-all-btn" onClick={() => setGiftShowAll(false)}>
-                  🔼 Faqat oxirgi 20 tani ko'rish
-                </button>
-              )}
+              {/* Load more (8 tadan) */}
+              {(giftTotal == null || giftOrders.length < giftTotal) &&
+                giftOrders.length > 0 && (
+                  <button
+                    className="show-all-btn"
+                    disabled={giftLoadingMore}
+                    onClick={loadMoreGift}
+                  >
+                    {giftLoadingMore
+                      ? "⏳ Yuklanmoqda..."
+                      : `🎁 Yana ${PAGE_SIZE} ta${
+                          giftTotal != null ? ` (jami: ${giftTotal})` : ""
+                        }`}
+                  </button>
+                )}
             </div>
           )}
         </div>
@@ -2488,7 +2701,7 @@ export default function AdminPanel() {
               {filteredUsers.length === 0 ? (
                 <div className="empty-state">👤 Foydalanuvchilar yo'q</div>
               ) : (
-                filteredUsers.slice(0, showAll ? filteredUsers.length : 20).map((u, index) => (
+                filteredUsers.map((u, index) => (
                   <div 
                     key={u.id} 
                     className="user-card"
@@ -2633,21 +2846,22 @@ export default function AdminPanel() {
                 ))
               )}
 
-              {filteredUsers.length > 20 && !showAll && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <button className="show-all-btn" onClick={() => setShowAll(true)}>
-                    👥 Barcha foydalanuvchilar ({filteredUsers.length} ta)
-                  </button>
-                </div>
-              )}
-
-              {showAll && filteredUsers.length > 20 && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <button className="show-all-btn" onClick={() => setShowAll(false)}>
-                    🔼 Faqat 20 tani ko'rish
-                  </button>
-                </div>
-              )}
+              {(usersTotal == null || users.length < usersTotal) &&
+                users.length > 0 && (
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <button
+                      className="show-all-btn"
+                      disabled={usersLoadingMore}
+                      onClick={loadMoreUsers}
+                    >
+                      {usersLoadingMore
+                        ? "⏳ Yuklanmoqda..."
+                        : `👥 Yana ${PAGE_SIZE} ta${
+                            usersTotal != null ? ` (jami: ${usersTotal})` : ""
+                          }`}
+                    </button>
+                  </div>
+                )}
             </div>
           )}
         </div>
@@ -2729,7 +2943,6 @@ export default function AdminPanel() {
                       tx.id.toString().includes(s)
                     );
                   })
-                  .slice(0, premiumShowAll ? premiumOrders.length : 20)
                   .map((tx) => (
                   <div
                     key={tx.id}
@@ -2830,18 +3043,21 @@ export default function AdminPanel() {
                 ))
               )}
 
-              {/* Show All Button */}
-              {premiumOrders.length > 20 && !premiumShowAll && (
-                <button className="show-all-btn" onClick={() => setPremiumShowAll(true)}>
-                  💎 Barcha buyurtmalarni ko'rish ({premiumOrders.length} ta)
-                </button>
-              )}
-
-              {premiumShowAll && premiumOrders.length > 20 && (
-                <button className="show-all-btn" onClick={() => setPremiumShowAll(false)}>
-                  🔼 Faqat oxirgi 20 tani ko'rish
-                </button>
-              )}
+              {/* Load more (8 tadan) */}
+              {(premiumTotal == null || premiumOrders.length < premiumTotal) &&
+                premiumOrders.length > 0 && (
+                  <button
+                    className="show-all-btn"
+                    disabled={premiumLoadingMore}
+                    onClick={loadMorePremium}
+                  >
+                    {premiumLoadingMore
+                      ? "⏳ Yuklanmoqda..."
+                      : `💎 Yana ${PAGE_SIZE} ta${
+                          premiumTotal != null ? ` (jami: ${premiumTotal})` : ""
+                        }`}
+                  </button>
+                )}
             </div>
           )}
         </div>
@@ -2981,6 +3197,70 @@ export default function AdminPanel() {
       {/* ==================== SETTINGS TAB ==================== */}
       {activeTab === "settings" && (
         <div className="tab-content settings-tab">
+          {/* ========== 💳 TO'LOV KARTASI ========== */}
+          <h3 className="settings-section-title">💳 To'lov kartasi</h3>
+          <p className="settings-section-desc">
+            Faol karta foydalanuvchilarga ko'rsatiladi va to'lov SMS'lari <strong>faqat shu
+            kartaning Telegram chatidan</strong> qabul qilinadi. Almashtirish darhol kuchga kiradi.
+          </p>
+
+          <div className="card-provider-grid">
+            {cardProviders.map((c) => {
+              const isActive = c.provider === cardProvider;
+              const isLoading = cardSwitchLoading === c.provider;
+              return (
+                <div
+                  key={c.provider}
+                  className={`card-provider-item ${isActive ? "active" : ""} ${
+                    !c.configured ? "unconfigured" : ""
+                  }`}
+                >
+                  <div className="card-provider-head">
+                    <span className="card-provider-name">
+                      {c.provider === "humo" ? "🟢" : "🔵"} {c.label}
+                    </span>
+                    <span className={`card-provider-badge ${isActive ? "on" : "off"}`}>
+                      {isActive ? "✅ Faol" : "⏸️ Kutmoqda"}
+                    </span>
+                  </div>
+
+                  <div className="card-provider-details">
+                    <div className="detail-row">
+                      <span className="label">Karta:</span>
+                      <span className="value">{c.card_number_formatted || "—"}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">Egasi:</span>
+                      <span className="value">{c.card_name || "—"}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="label">SMS chat ID:</span>
+                      <span className="value">{c.chat_id || "—"}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    className={`card-provider-btn ${isActive ? "is-active" : ""}`}
+                    onClick={() => switchPaymentCard(c.provider)}
+                    disabled={isActive || isLoading || !c.configured || Boolean(cardSwitchLoading)}
+                  >
+                    {isActive
+                      ? "✅ Hozir ishlatilmoqda"
+                      : isLoading
+                      ? "⏳ Almashtirilmoqda..."
+                      : !c.configured
+                      ? "⚠️ Sozlanmagan"
+                      : `🔄 ${c.label} ga o'tish`}
+                  </button>
+                </div>
+              );
+            })}
+
+            {cardProviders.length === 0 && (
+              <div className="empty-state">⏳ Kartalar yuklanmoqda...</div>
+            )}
+          </div>
+
           <h3 className="settings-section-title">⚡ Stars / Premium yetkazish</h3>
           <p className="settings-section-desc">
             Yetkazish yagona yo&apos;l orqali: <strong>StarsPaymee Partner API</strong> (stars &amp; premium).

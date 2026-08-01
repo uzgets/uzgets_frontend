@@ -3,6 +3,7 @@ import starsSticker from "../../assets/AnimatedSticker_stars.tgs";
 import { TGSSticker } from "../../components/TGSSticker";
 import { useNavigate } from "react-router-dom";
 import apiFetch from "../../utils/apiFetch";
+import { usePaymentCard } from "../../utils/paymentCard";
 import { EXPIRED_STARS_MESSAGE, SUPPORT_URL } from "../../utils/support";
 import "./Stars.css";
 
@@ -39,8 +40,8 @@ const StarIcon = () => (
 const POLLING_DURATION = 8 * 60 * 1000; // 8 daqiqa millisekondda
 
 export function StarsPurchasePage() {
-  const CARD_NUMBER = import.meta.env.VITE_CARD_NUMBER;
-  const CARD_NAME = import.meta.env.VITE_CARD_NAME;
+  // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
+  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
   const NARX = parseInt(import.meta.env.VITE_NARX);
 
   // Stars options

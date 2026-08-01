@@ -4,13 +4,14 @@ import { TGSSticker } from "../../components/TGSSticker";
 import { useNavigate, useLocation } from "react-router-dom";
 import WebApp from "@twa-dev/sdk";
 import apiFetch from "../../utils/apiFetch";
+import { usePaymentCard } from "../../utils/paymentCard";
 import "./Discount.css";
 
 const POLLING_DURATION = 8 * 60 * 1000;
 
 export default function Discount() {
-  const CARD_NUMBER = import.meta.env.VITE_CARD_NUMBER;
-  const CARD_NAME = import.meta.env.VITE_CARD_NAME;
+  // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
+  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
   const NARX = parseInt(import.meta.env.VITE_NARX); // 240 so'm per star
 
   // Discount packages from API
