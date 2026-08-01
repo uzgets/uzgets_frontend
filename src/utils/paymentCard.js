@@ -1,46 +1,95 @@
 /**
  * 💳 Faol to'lov kartasi — UZCARD yoki HUMO.
  *
- * Karta admin panelda almashtiriladi va `/api/app-config` orqali keladi.
- * So'rov muvaffaqiyatsiz bo'lsa .env dagi qiymat ko'rsatiladi (eski xatti-harakat).
+ * Yagona manba: `/api/app-config` (admin panelda tanlangan karta).
+ * .env dagi VITE_CARD_NUMBER ISHLATILMAYDI — eski qiymat ko'rsatilib, pul noto'g'ri
+ * kartaga tushib qolmasligi uchun. Karta kelmaguncha placeholder ko'rsatiladi.
+ *
+ * Sahifa uzoq ochiq tursa ham (60s interval + fokusga qaytish) karta yangilanadi —
+ * admin panelda almashtirilsa foydalanuvchi eski kartani ko'rmaydi.
  */
 import { useEffect, useState } from "react";
 import apiFetch from "./apiFetch";
 
-const FALLBACK_CARD = {
-  cardNumber: import.meta.env.VITE_CARD_NUMBER || "",
-  cardName: import.meta.env.VITE_CARD_NAME || "",
-  provider: "uzcard",
-  providerLabel: "UZCARD",
+const REFRESH_MS = 60_000;
+const RETRY_MS = 2_500;
+
+const EMPTY_CARD = {
+  cardNumber: "",
+  cardName: "",
+  provider: "",
+  providerLabel: "",
   loading: true,
+  error: false,
 };
 
 export function usePaymentCard() {
-  const [card, setCard] = useState(FALLBACK_CARD);
+  const [card, setCard] = useState(EMPTY_CARD);
 
   useEffect(() => {
     let alive = true;
+    let retried = false;
+    let retryTimer = null;
 
-    apiFetch("/api/app-config")
-      .then((r) => r.json())
-      .then((cfg) => {
-        if (!alive || !cfg?.card_number) return;
+    const load = async () => {
+      try {
+        const res = await apiFetch("/api/app-config");
+        const cfg = await res.json();
+        if (!alive) return;
+        if (!cfg?.card_number) throw new Error("app-config: card_number yo'q");
+
+        retried = false;
         setCard({
           cardNumber: String(cfg.card_number),
-          cardName: cfg.card_name || FALLBACK_CARD.cardName,
-          provider: cfg.card_provider || "uzcard",
-          providerLabel: cfg.card_provider_label || "UZCARD",
+          cardName: cfg.card_name || "",
+          provider: cfg.card_provider || "",
+          providerLabel: cfg.card_provider_label || "",
           loading: false,
+          error: false,
         });
-      })
-      .catch(() => {
-        if (alive) setCard((c) => ({ ...c, loading: false }));
-      });
+      } catch (err) {
+        if (!alive) return;
+        console.error("💳 Karta ma'lumoti olinmadi:", err?.message || err);
+
+        // Karta allaqachon olingan bo'lsa — eskisini saqlaymiz, aks holda xato holati
+        setCard((prev) =>
+          prev.cardNumber ? prev : { ...EMPTY_CARD, loading: false, error: true }
+        );
+
+        // Bir marta tezkor qayta urinish, keyin 60s interval o'z ishini qiladi
+        if (!retried) {
+          retried = true;
+          retryTimer = setTimeout(load, RETRY_MS);
+        }
+      }
+    };
+
+    load();
+
+    const interval = setInterval(load, REFRESH_MS);
+    const onVisible = () => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") {
+        load();
+      }
+    };
+
+    window.addEventListener("focus", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
       alive = false;
+      clearTimeout(retryTimer);
+      clearInterval(interval);
+      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
-  return card;
+  return {
+    ...card,
+    // JSX uchun tayyor matn — karta kelmaguncha raqam o'rniga holat ko'rsatiladi
+    cardNumberDisplay: card.cardNumber || (card.error ? "⚠️ Yuklanmadi" : "⏳ Yuklanmoqda..."),
+    cardNameDisplay: card.cardName || (card.error ? "⚠️" : "..."),
+    ready: Boolean(card.cardNumber),
+  };
 }

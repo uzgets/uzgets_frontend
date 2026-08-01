@@ -11,7 +11,11 @@ const POLLING_DURATION = 8 * 60 * 1000;
 
 export default function Discount() {
   // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
-  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
+  const {
+    cardNumber: CARD_NUMBER,
+    cardNumberDisplay: CARD_NUMBER_TEXT,
+    cardNameDisplay: CARD_NAME,
+  } = usePaymentCard();
   const NARX = parseInt(import.meta.env.VITE_NARX); // 240 so'm per star
 
   // Discount packages from API
@@ -182,6 +186,7 @@ export default function Discount() {
 
   // Copy handlers
   const handleCopy = () => {
+    if (!CARD_NUMBER) return; // karta hali yuklanmagan
     navigator.clipboard.writeText(CARD_NUMBER);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -530,7 +535,7 @@ export default function Discount() {
                   <div className="modal-pay-item">
                     <div className="modal-pay-label">Karta raqami</div>
                     <div className="modal-pay-row">
-                      <span className="modal-pay-value">{CARD_NUMBER}</span>
+                      <span className="modal-pay-value">{CARD_NUMBER_TEXT}</span>
                       <button className="modal-copy-btn" onClick={handleCopy}>
                         {copied ? "✓" : "📋"}
                       </button>
@@ -606,7 +611,7 @@ export default function Discount() {
                 <div className="waiting-payment-info">
                   <div className="waiting-info-row">
                     <span className="waiting-label">Karta:</span>
-                    <span className="waiting-value">{CARD_NUMBER}</span>
+                    <span className="waiting-value">{CARD_NUMBER_TEXT}</span>
                     <button className="modal-copy-btn-sm" onClick={handleCopy}>
                       {copied ? "✓" : "📋"}
                     </button>

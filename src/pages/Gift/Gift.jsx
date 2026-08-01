@@ -57,7 +57,11 @@ export default function Gift() {
   const { t } = useTranslation();
 
   // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
-  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
+  const {
+    cardNumber: CARD_NUMBER,
+    cardNumberDisplay: CARD_NUMBER_TEXT,
+    cardNameDisplay: CARD_NAME,
+  } = usePaymentCard();
 
   // Step 1: Recipient
   const [username, setUsername] = useState("");
@@ -379,6 +383,7 @@ export default function Gift() {
 
   // === Copy handlers ===
   const handleCopyCard = () => {
+    if (!CARD_NUMBER) return; // karta hali yuklanmagan
     navigator.clipboard.writeText(CARD_NUMBER);
     setCopiedCard(true);
     setTimeout(() => setCopiedCard(false), 1500);
@@ -703,7 +708,7 @@ export default function Gift() {
                   <div className="gift-modal-pay-item">
                     <div className="gift-modal-pay-label">{t("stars.cardNumber")}</div>
                     <div className="gift-modal-pay-row">
-                      <span className="gift-modal-pay-value">{CARD_NUMBER}</span>
+                      <span className="gift-modal-pay-value">{CARD_NUMBER_TEXT}</span>
                       <button type="button" className="gift-modal-copy-btn" onClick={handleCopyCard}>
                         {copiedCard ? "✓" : "📋"}
                       </button>
@@ -777,7 +782,7 @@ export default function Gift() {
                   <div className="gift-modal-pay-item">
                     <div className="gift-modal-pay-label">{t("stars.cardNumber")}</div>
                     <div className="gift-modal-pay-row">
-                      <span className="gift-modal-pay-value">{CARD_NUMBER}</span>
+                      <span className="gift-modal-pay-value">{CARD_NUMBER_TEXT}</span>
                       <button type="button" className="gift-modal-copy-btn" onClick={handleCopyCard}>
                         {copiedCard ? "✓" : "📋"}
                       </button>

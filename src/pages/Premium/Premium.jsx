@@ -20,7 +20,11 @@ export function PremiumPurchasePage() {
   const PREMIUM_6 = parseInt(import.meta.env.VITE_PREMIUM_6);
   const PREMIUM_12 = parseInt(import.meta.env.VITE_PREMIUM_12);
   // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
-  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
+  const {
+    cardNumber: CARD_NUMBER,
+    cardNumberDisplay: CARD_NUMBER_TEXT,
+    cardNameDisplay: CARD_NAME,
+  } = usePaymentCard();
 
   // ====================
   // STATE
@@ -406,6 +410,7 @@ export function PremiumPurchasePage() {
 
   // Copy handlers - alohida animatsiyalar
   const handleCopyCard = () => {
+    if (!CARD_NUMBER) return; // karta hali yuklanmagan
     navigator.clipboard.writeText(CARD_NUMBER);
     setCopiedCard(true);
     setTimeout(() => setCopiedCard(false), 1500);
@@ -603,7 +608,7 @@ export function PremiumPurchasePage() {
                   <div className="modal-pay-item">
                     <div className="modal-pay-label">Karta raqami</div>
                     <div className="modal-pay-row">
-                      <span className="modal-pay-value">{CARD_NUMBER}</span>
+                      <span className="modal-pay-value">{CARD_NUMBER_TEXT}</span>
                       <button type="button" className="modal-copy-btn" onClick={handleCopyCard}>
                         {copiedCard ? "✓" : "📋"}
                       </button>
@@ -682,7 +687,7 @@ export function PremiumPurchasePage() {
                 <div className="waiting-payment-info">
                   <div className="waiting-info-row">
                     <span className="waiting-label">Karta:</span>
-                    <span className="waiting-value">{CARD_NUMBER}</span>
+                    <span className="waiting-value">{CARD_NUMBER_TEXT}</span>
                     <button type="button" className="modal-copy-btn-sm" onClick={handleCopyCard}>
                       {copiedCard ? "✓" : "📋"}
                     </button>

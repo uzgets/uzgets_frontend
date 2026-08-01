@@ -41,7 +41,11 @@ const POLLING_DURATION = 8 * 60 * 1000; // 8 daqiqa millisekondda
 
 export function StarsPurchasePage() {
   // 💳 Faol karta (UZCARD / HUMO) — admin panelda almashtiriladi
-  const { cardNumber: CARD_NUMBER, cardName: CARD_NAME } = usePaymentCard();
+  const {
+    cardNumber: CARD_NUMBER,
+    cardNumberDisplay: CARD_NUMBER_TEXT,
+    cardNameDisplay: CARD_NAME,
+  } = usePaymentCard();
   const NARX = parseInt(import.meta.env.VITE_NARX);
 
   // Stars options
@@ -260,6 +264,7 @@ export function StarsPurchasePage() {
 
   // Copy card
   const handleCopy = () => {
+    if (!CARD_NUMBER) return; // karta hali yuklanmagan
     navigator.clipboard.writeText(CARD_NUMBER);
     setCopiedCard(true);
     setTimeout(() => setCopiedCard(false), 2000);
@@ -812,7 +817,7 @@ export function StarsPurchasePage() {
                   <div className="modal-pay-item">
                     <div className="modal-pay-label">Karta raqami</div>
                     <div className="modal-pay-row">
-                      <span className="modal-pay-value">{CARD_NUMBER}</span>
+                      <span className="modal-pay-value">{CARD_NUMBER_TEXT}</span>
                       <button type="button" className="modal-copy-btn" onClick={handleCopy}>
                         {copiedCard ? "✓" : "📋"}
                       </button>
@@ -889,7 +894,7 @@ export function StarsPurchasePage() {
                 <div className="waiting-payment-info">
                   <div className="waiting-info-row">
                     <span className="waiting-label">Karta:</span>
-                    <span className="waiting-value">{CARD_NUMBER}</span>
+                    <span className="waiting-value">{CARD_NUMBER_TEXT}</span>
                     <button type="button" className="modal-copy-btn-sm" onClick={handleCopy}>
                       {copiedCard ? "✓" : "📋"}
                     </button>
