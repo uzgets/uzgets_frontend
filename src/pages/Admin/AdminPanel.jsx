@@ -184,10 +184,6 @@ export default function AdminPanel() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
-  // 💳 To'lov kartasi (UZCARD ⇄ HUMO)
-  const [cardProvider, setCardProvider] = useState("uzcard");
-  const [cardProviders, setCardProviders] = useState([]);
-  const [cardSwitchLoading, setCardSwitchLoading] = useState(null); // almashtirilayotgan provider
 
   // StarsPaymee Partner API health (header rozetkasi)
   const [paymeeHealth, setPaymeeHealth] = useState({ ok: false, fragment_ready: false, version: null, error: null });
@@ -289,8 +285,6 @@ export default function AdminPanel() {
   const applySettingsFromApi = (data) => {
     if (!data) return;
     if (data.maintenance !== undefined) setMaintenanceMode(Boolean(data.maintenance));
-    if (data.card_provider) setCardProvider(data.card_provider);
-    if (Array.isArray(data.card_providers)) setCardProviders(data.card_providers);
   };
 
   const fetchAdminSettings = async () => {
@@ -324,49 +318,6 @@ export default function AdminPanel() {
       console.error("Maintenance toggle xato:", err);
     }
     setMaintenanceLoading(false);
-  };
-
-  // ========== 💳 TO'LOV KARTASI (UZCARD ⇄ HUMO) ==========
-  const switchPaymentCard = async (provider) => {
-    if (!provider || provider === cardProvider || cardSwitchLoading) return;
-
-    const target = cardProviders.find((c) => c.provider === provider);
-    const label = target?.label || provider.toUpperCase();
-
-    if (target && !target.configured) {
-      alert(`❌ ${label} kartasi to'liq sozlanmagan (karta raqami yoki SMS chat ID yo'q).`);
-      return;
-    }
-
-    const ok = window.confirm(
-      `💳 To'lov kartasi ${label} ga o'tkazilsinmi?\n\n` +
-        `• Karta: ${target?.card_number_formatted || "-"}\n` +
-        `• Egasi: ${target?.card_name || "-"}\n` +
-        `• SMS chat ID: ${target?.chat_id || "-"}\n\n` +
-        `Shundan keyin foydalanuvchilarga shu karta ko'rsatiladi va to'lov SMS'lari faqat shu chatdan qabul qilinadi.`
-    );
-    if (!ok) return;
-
-    setCardSwitchLoading(provider);
-    try {
-      const res = await apiFetch("/api/admin/payment-card", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        applySettingsFromApi(data);
-        alert(`✅ Faol karta: ${data.card_provider_label} (***${data.card_last4})`);
-      } else {
-        alert(`❌ Xato: ${data.error || "Karta almashtirilmadi"}`);
-      }
-    } catch (err) {
-      console.error("Karta almashtirish xato:", err);
-      alert("❌ Server bilan bog'lanib bo'lmadi");
-    } finally {
-      setCardSwitchLoading(null);
-    }
   };
 
   // ========== WALLET & PRICES FUNCTION ==========
@@ -3197,70 +3148,6 @@ export default function AdminPanel() {
       {/* ==================== SETTINGS TAB ==================== */}
       {activeTab === "settings" && (
         <div className="tab-content settings-tab">
-          {/* ========== 💳 TO'LOV KARTASI ========== */}
-          <h3 className="settings-section-title">💳 To'lov kartasi</h3>
-          <p className="settings-section-desc">
-            Faol karta foydalanuvchilarga ko'rsatiladi va to'lov SMS'lari <strong>faqat shu
-            kartaning Telegram chatidan</strong> qabul qilinadi. Almashtirish darhol kuchga kiradi.
-          </p>
-
-          <div className="card-provider-grid">
-            {cardProviders.map((c) => {
-              const isActive = c.provider === cardProvider;
-              const isLoading = cardSwitchLoading === c.provider;
-              return (
-                <div
-                  key={c.provider}
-                  className={`card-provider-item ${isActive ? "active" : ""} ${
-                    !c.configured ? "unconfigured" : ""
-                  }`}
-                >
-                  <div className="card-provider-head">
-                    <span className="card-provider-name">
-                      {c.provider === "humo" ? "🟢" : "🔵"} {c.label}
-                    </span>
-                    <span className={`card-provider-badge ${isActive ? "on" : "off"}`}>
-                      {isActive ? "✅ Faol" : "⏸️ Kutmoqda"}
-                    </span>
-                  </div>
-
-                  <div className="card-provider-details">
-                    <div className="detail-row">
-                      <span className="label">Karta:</span>
-                      <span className="value">{c.card_number_formatted || "—"}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">Egasi:</span>
-                      <span className="value">{c.card_name || "—"}</span>
-                    </div>
-                    <div className="detail-row">
-                      <span className="label">SMS chat ID:</span>
-                      <span className="value">{c.chat_id || "—"}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    className={`card-provider-btn ${isActive ? "is-active" : ""}`}
-                    onClick={() => switchPaymentCard(c.provider)}
-                    disabled={isActive || isLoading || !c.configured || Boolean(cardSwitchLoading)}
-                  >
-                    {isActive
-                      ? "✅ Hozir ishlatilmoqda"
-                      : isLoading
-                      ? "⏳ Almashtirilmoqda..."
-                      : !c.configured
-                      ? "⚠️ Sozlanmagan"
-                      : `🔄 ${c.label} ga o'tish`}
-                  </button>
-                </div>
-              );
-            })}
-
-            {cardProviders.length === 0 && (
-              <div className="empty-state">⏳ Kartalar yuklanmoqda...</div>
-            )}
-          </div>
-
           <h3 className="settings-section-title">⚡ Stars / Premium yetkazish</h3>
           <p className="settings-section-desc">
             Yetkazish yagona yo&apos;l orqali: <strong>StarsPaymee Partner API</strong> (stars &amp; premium).

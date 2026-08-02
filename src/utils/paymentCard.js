@@ -1,12 +1,12 @@
 /**
- * 💳 Faol to'lov kartasi — UZCARD yoki HUMO.
+ * 💳 To'lov kartasi — HUMO.
  *
- * Yagona manba: `/api/app-config` (admin panelda tanlangan karta).
- * .env dagi VITE_CARD_NUMBER ISHLATILMAYDI — eski qiymat ko'rsatilib, pul noto'g'ri
- * kartaga tushib qolmasligi uchun. Karta kelmaguncha placeholder ko'rsatiladi.
+ * Yagona manba: `/api/app-config` (backend .env: HUMO_CARD_NUMBER / HUMO_CARD_NAME).
+ * Frontend .env dagi VITE_CARD_NUMBER ISHLATILMAYDI — eski qiymat ko'rsatilib, pul
+ * noto'g'ri kartaga tushib qolmasligi uchun. Karta kelmaguncha placeholder ko'rsatiladi.
  *
  * Sahifa uzoq ochiq tursa ham (60s interval + fokusga qaytish) karta yangilanadi —
- * admin panelda almashtirilsa foydalanuvchi eski kartani ko'rmaydi.
+ * .env da karta o'zgartirilsa foydalanuvchi eskisini ko'rmaydi.
  */
 import { useEffect, useState } from "react";
 import apiFetch from "./apiFetch";
