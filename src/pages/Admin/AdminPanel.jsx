@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import "./AdminPanel.css";
 import { TGSSticker } from "../../components/TGSSticker";
 import adminSticker from "../../assets/AnimatedSticker_admin.tgs";
@@ -232,7 +232,10 @@ export default function AdminPanel() {
   const [giftShowAll, setGiftShowAll] = useState(false);
   const [giftTotal, setGiftTotal] = useState(null);
   const [giftLoadingMore, setGiftLoadingMore] = useState(false);
+  // 📤 Admin "yuborish": bir vaqtda faqat bitta order, faqat bitta bosish
   const [adminSendingOrderId, setAdminSendingOrderId] = useState(null);
+  const [adminSendPhase, setAdminSendPhase] = useState(null); // sending | success | error
+  const adminSendLockRef = useRef(false); // React render'ini kutmaydigan qat'iy qulf
 
   // Analytics state
   const [analyticsPeriod, setAnalyticsPeriod] = useState("all"); // day, week, month, all
@@ -1272,22 +1275,57 @@ export default function AdminPanel() {
     }
   };
 
-  const executeSendPremium = async (id) => {
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  /**
+   * Admin "yuborish" — barcha turlar (stars / premium / gift) uchun yagona oqim.
+   * • adminSendLockRef — tugma ikki marta bosilsa ikkinchi bosish umuman o'tmaydi
+   * • tugmada animatsiya: yuborilmoqda → ✅ yuborildi / ❌ xato
+   */
+  const runAdminSend = async ({ id, url, refresh, collapse }) => {
+    if (adminSendLockRef.current) return;
+    adminSendLockRef.current = true;
+
     setAdminSendingOrderId(id);
+    setAdminSendPhase("sending");
+
     try {
-      const res = await apiFetch(`/api/admin/premium/resend/${id}`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        alert("💎 Premium yuborildi!");
-        fetchPremiumOrders();
-        setPremiumExpandedId(null);
+      const res = await apiFetch(url, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success) {
+        setAdminSendPhase("success");
+        await sleep(1200); // ✅ animatsiya ko'rinib tursin
+        refresh?.();
+        collapse?.();
       } else {
-        alert("❌ Xato: " + data.error);
+        setAdminSendPhase("error");
+        await sleep(900);
+        const msg =
+          res.status === 409
+            ? "Bu buyurtma allaqachon yuborilmoqda — natijani kuting"
+            : data.error || data.details || `Yuborilmadi (HTTP ${res.status})`;
+        alert(`❌ ${msg}`);
       }
+    } catch (err) {
+      console.error("❌ Admin yuborish xatosi:", err);
+      setAdminSendPhase("error");
+      await sleep(900);
+      alert("❌ Server bilan bog'lanib bo'lmadi");
     } finally {
       setAdminSendingOrderId(null);
+      setAdminSendPhase(null);
+      adminSendLockRef.current = false;
     }
   };
+
+  const executeSendPremium = (id) =>
+    runAdminSend({
+      id,
+      url: `/api/admin/premium/resend/${id}`,
+      refresh: fetchPremiumOrders,
+      collapse: () => setPremiumExpandedId(null),
+    });
 
   const premiumSendConfirmMessage = (status) => {
     if (status === "expired") return "⏱️ Expired premium buyurtmani mijozga yuborasizmi?";
@@ -1302,16 +1340,10 @@ export default function AdminPanel() {
   const premiumCanAdminSend = (status) =>
     ADMIN_SEND_STATUSES.includes(status) || status === "error" || status === "processing";
 
-  const adminSendPremium = async (id, status) => {
-    if (adminSendingOrderId !== null) return;
-    try {
-      if (!window.confirm(premiumSendConfirmMessage(status))) return;
-      await executeSendPremium(id);
-    } catch (err) {
-      console.error("❌ Premium yuborishda xato:", err);
-      alert("Server xato!");
-      setAdminSendingOrderId(null);
-    }
+  const adminSendPremium = (id, status) => {
+    if (adminSendLockRef.current || adminSendingOrderId !== null) return;
+    if (!window.confirm(premiumSendConfirmMessage(status))) return;
+    executeSendPremium(id);
   };
 
   // Manual Premium Order yaratish (admin qo'lda akkauntga kirib yuborgan uchun)
@@ -1379,22 +1411,13 @@ export default function AdminPanel() {
     }
   };
 
-  const executeSendStars = async (id) => {
-    setAdminSendingOrderId(id);
-    try {
-      const res = await apiFetch(`/api/admin/stars/send/${id}`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        alert("🌟 Stars yuborildi!");
-        fetchTransactions();
-        setExpandedId(null);
-      } else {
-        alert("❌ Xato: " + data.error);
-      }
-    } finally {
-      setAdminSendingOrderId(null);
-    }
-  };
+  const executeSendStars = (id) =>
+    runAdminSend({
+      id,
+      url: `/api/admin/stars/send/${id}`,
+      refresh: fetchTransactions,
+      collapse: () => setExpandedId(null),
+    });
 
   const starsSendConfirmMessage = (status) => {
     if (status === "expired") return "⏱️ Expired buyurtmani mijozga yuborasizmi?";
@@ -1406,16 +1429,10 @@ export default function AdminPanel() {
   const starsCanAdminSend = (status) =>
     ADMIN_SEND_STATUSES.includes(status) || status === "error" || status === "processing";
 
-  const adminSendStars = async (id, status) => {
-    if (adminSendingOrderId !== null) return;
-    try {
-      if (!window.confirm(starsSendConfirmMessage(status))) return;
-      await executeSendStars(id);
-    } catch (err) {
-      console.error("❌ Stars yuborishda xato:", err);
-      alert("Server xato!");
-      setAdminSendingOrderId(null);
-    }
+  const adminSendStars = (id, status) => {
+    if (adminSendLockRef.current || adminSendingOrderId !== null) return;
+    if (!window.confirm(starsSendConfirmMessage(status))) return;
+    executeSendStars(id);
   };
 
   // Gift order expire
@@ -1443,22 +1460,13 @@ export default function AdminPanel() {
     }
   };
 
-  const executeSendGift = async (id) => {
-    setAdminSendingOrderId(id);
-    try {
-      const res = await apiFetch(`/api/admin/gift/send/${id}`, { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
-        alert("🎁 Gift yuborildi!");
-        fetchGiftOrders();
-        setGiftExpandedId(null);
-      } else {
-        alert("❌ Xato: " + data.error);
-      }
-    } finally {
-      setAdminSendingOrderId(null);
-    }
-  };
+  const executeSendGift = (id) =>
+    runAdminSend({
+      id,
+      url: `/api/admin/gift/send/${id}`,
+      refresh: fetchGiftOrders,
+      collapse: () => setGiftExpandedId(null),
+    });
 
   const giftSendConfirmMessage = (status) => {
     if (status === "expired") return "⏱️ Expired gift buyurtmani mijozga yuborasizmi?";
@@ -1470,40 +1478,47 @@ export default function AdminPanel() {
   const giftCanAdminSend = (status) =>
     ADMIN_SEND_STATUSES.includes(status) || status === "error" || status === "processing";
 
-  const adminSendGift = async (id, status) => {
-    if (adminSendingOrderId !== null) return;
-    try {
-      if (!window.confirm(giftSendConfirmMessage(status))) return;
-      await executeSendGift(id);
-    } catch (err) {
-      console.error("❌ Gift yuborishda xato:", err);
-      alert("Server xato!");
-      setAdminSendingOrderId(null);
-    }
+  const adminSendGift = (id, status) => {
+    if (adminSendLockRef.current || adminSendingOrderId !== null) return;
+    if (!window.confirm(giftSendConfirmMessage(status))) return;
+    executeSendGift(id);
   };
 
   const renderAdminSendButton = (orderId, onSend) => {
-    const sending = adminSendingOrderId === orderId;
+    const isThisOrder = adminSendingOrderId === orderId;
+    const phase = isThisOrder ? adminSendPhase : null;
     const busy = adminSendingOrderId !== null;
+
+    const label = {
+      sending: (
+        <span className="action-btn-send-inner">
+          <span className="action-btn-spinner" aria-hidden="true" />
+          Yuborilmoqda...
+        </span>
+      ),
+      success: (
+        <span className="action-btn-send-inner">
+          <span className="action-btn-check" aria-hidden="true" />
+          Yuborildi!
+        </span>
+      ),
+      error: <span className="action-btn-send-inner">❌ Xato</span>,
+    }[phase] || "📤 Yuborish";
+
     return (
       <button
         type="button"
-        className={`action-btn send${sending ? " action-btn--sending" : ""}`}
+        className={`action-btn send${phase ? ` action-btn--${phase}` : ""}`}
         disabled={busy}
+        aria-busy={phase === "sending"}
         onClick={(e) => {
           e.stopPropagation();
-          if (busy) return;
+          // Qat'iy qulf: React qayta render qilguncha ikkinchi bosish o'tmaydi
+          if (busy || adminSendLockRef.current) return;
           onSend();
         }}
       >
-        {sending ? (
-          <span className="action-btn-send-inner">
-            <span className="action-btn-spinner" aria-hidden="true" />
-            Yuborilmoqda...
-          </span>
-        ) : (
-          "📤 Yuborish"
-        )}
+        {label}
       </button>
     );
   };
