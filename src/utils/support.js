@@ -1,5 +1,5 @@
-export const SUPPORT_USERNAME = "@uzgets_jbot";
-export const SUPPORT_URL = "https://t.me/uzgets_jbot";
+export const SUPPORT_USERNAME = "@uzgetssupport";
+export const SUPPORT_URL = "https://t.me/uzgetssupport";
 
 function buildExpiredMessage(productLabel) {
   return `⚠️ Siz ${productLabel} sotib olishga harakat qildingiz, ammo to'lov amalga oshirilmadi.\n\nAgar qandaydir muammo yuzaga kelgan bo'lsa, iltimos admin bilan bog'laning:\n\nAdmin: ${SUPPORT_USERNAME}`;
